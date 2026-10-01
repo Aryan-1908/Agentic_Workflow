@@ -1,0 +1,67 @@
+{
+ "description": "Catalogue #17: one outage re-fires as new incidents from several regions, plus a CPU alert on the same VM.",
+ "checks": "M2: duplicates collapse (one signal per condition); catalogue #17",
+ "signals": [
+  {
+   "id": "r1",
+   "minute": 0,
+   "service": "storefront",
+   "title": "Uptime check storefront-home failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "r2",
+   "minute": 1,
+   "service": "storefront",
+   "title": "Uptime check storefront-home failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "r3",
+   "minute": 1,
+   "service": "storefront",
+   "title": "Uptime check storefront-home failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "cpu",
+   "minute": 2,
+   "service": "storefront",
+   "title": "CPU > 85% on web-01",
+   "resource": "web-01",
+   "metric": "compute.googleapis.com/instance/cpu/utilization",
+   "severity": "warning",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "r1",
+    "r2",
+    "r3",
+    "cpu"
+   ]
+  ],
+  "unique_signals": {
+   "r1": 2
+  },
+  "repeats": [
+   "r2",
+   "r3"
+  ]
+ }
+}

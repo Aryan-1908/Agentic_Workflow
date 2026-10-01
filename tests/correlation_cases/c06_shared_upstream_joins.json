@@ -1,0 +1,51 @@
+{
+ "description": "storefront and reports-batch fail separately; then orders-db (which both depend on) alerts. One incident.",
+ "checks": "M2: a shared upstream cause joins cases",
+ "signals": [
+  {
+   "id": "shop",
+   "minute": 0,
+   "service": "storefront",
+   "title": "Uptime check storefront-checkout failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "rep",
+   "minute": 1,
+   "service": "reports-batch",
+   "title": "Nightly report job failed",
+   "resource": "batch-01",
+   "metric": null,
+   "severity": "error",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "db",
+   "minute": 2,
+   "service": "orders-db",
+   "title": "VM db-01 stopped reporting",
+   "resource": "db-01",
+   "metric": "compute.googleapis.com/instance/uptime",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "shop",
+    "rep",
+    "db"
+   ]
+  ],
+  "roots": {
+   "db": "orders-db"
+  }
+ }
+}

@@ -1,0 +1,38 @@
+{
+ "description": "A reports disk warning and a payments status blip at the same time: no dependency, two cases.",
+ "checks": "M2: no false correlation between unrelated services",
+ "signals": [
+  {
+   "id": "disk",
+   "minute": 0,
+   "service": "reports-batch",
+   "title": "Disk 90% on batch-01",
+   "resource": "batch-01",
+   "metric": null,
+   "severity": "warning",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "pay",
+   "minute": 1,
+   "service": "payments-provider",
+   "title": "PayFast: Webhooks degraded performance",
+   "resource": "Webhooks",
+   "metric": null,
+   "severity": "warning",
+   "source": "status:payments-provider",
+   "type": "status"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "disk"
+   ],
+   [
+    "pay"
+   ]
+  ]
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "description": "Seen live on 28 Sep: a VM start (info) followed within a minute by guest-agent errors, and later a scheduled stop (info). The start becomes context on the errors' case; the scheduled stop, related to nothing open, opens no incident. Spec: correlation 'deduplicates noise'; the pain point is disconnected pages.",
+ "checks": "M2: info-level events never open an incident on their own; they attach as context to a related case",
+ "signals": [
+  {"id": "start", "minute": 0, "service": "storefront", "title": "web-01: VM started", "resource": "web-01", "metric": "vm_event/start", "severity": "info", "source": "cloud_audit", "type": "event"},
+  {"id": "err", "minute": 1, "service": "storefront", "title": "web-01 GCEGuestAgent: error setting initial config", "resource": "web-01", "metric": "log/GCEGuestAgent", "severity": "error", "source": "cloud_logging", "type": "event"},
+  {"id": "sched", "minute": 240, "service": "reports-batch", "title": "batch-01: VM stopped by its instance schedule", "resource": "batch-01", "metric": "vm_event/stop", "severity": "info", "source": "cloud_audit", "type": "event"}
+ ],
+ "expect": {"groups": [["start", "err"]], "context": ["sched"]}
+}

@@ -1,0 +1,11 @@
+# The POC environment: the simulated Acme Shop (python -m sim), seen only through OpenTelemetry.
+name = "poc-test"
+telemetry = "runs/otel/telemetry.jsonl"     # written by the OTel Collector (otel/collector.yaml)
+services = "config/services.toml"          # Acme Shop services; dependencies are also learned from traces
+execution = "simulated"                    # approved actions are applied to the simulator (run it with --live)
+
+# Routing (spec M5): auto only for low blast radius with high confidence; below 0.4 confidence, escalate.
+[routing]
+auto_max_blast = "low"
+auto_min_confidence = 0.8
+escalate_below_confidence = 0.4

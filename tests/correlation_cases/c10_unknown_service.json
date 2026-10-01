@@ -1,0 +1,41 @@
+{
+ "description": "A signal no service claims is never merged by the rules.",
+ "checks": "M2: unknown service is flagged, not guessed",
+ "signals": [
+  {
+   "id": "shop",
+   "minute": 0,
+   "service": "storefront",
+   "title": "Uptime check storefront-home failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "mystery",
+   "minute": 1,
+   "service": "unknown",
+   "title": "Disk usage 97% on vm-legacy-7",
+   "resource": "vm-legacy-7",
+   "metric": null,
+   "severity": "warning",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "shop"
+   ],
+   [
+    "mystery"
+   ]
+  ],
+  "needs_review": [
+   "mystery"
+  ]
+ }
+}

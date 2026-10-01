@@ -1,0 +1,51 @@
+{
+ "description": "Catalogue #14: orders-db goes down, then orders-api and storefront checkout fail. One incident, db upstream.",
+ "checks": "M2: a cascade across dependent services becomes one case; catalogue #14",
+ "signals": [
+  {
+   "id": "db",
+   "minute": 0,
+   "service": "orders-db",
+   "title": "VM db-01 stopped reporting",
+   "resource": "db-01",
+   "metric": "compute.googleapis.com/instance/uptime",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "api",
+   "minute": 2,
+   "service": "orders-api",
+   "title": "Uptime check orders-health failing",
+   "resource": "34.93.10.21",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "shop",
+   "minute": 3,
+   "service": "storefront",
+   "title": "Uptime check storefront-checkout failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "db",
+    "api",
+    "shop"
+   ]
+  ],
+  "roots": {
+   "db": "orders-db"
+  }
+ }
+}

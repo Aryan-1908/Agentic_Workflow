@@ -1,0 +1,68 @@
+{
+ "about": "Novel incidents (queued from M4/M5, use case U12): the knowledge base doesn't cover them. Pass only if each ends 'insufficient knowledge: escalate', or with nothing but an escalate step: no action.",
+ "cases": [
+  {
+   "id": "redis-replica",
+   "kind": "unknown service",
+   "service": "session-cache",
+   "host": "cache-01",
+   "titles": [
+    "cache-01 redis: connection refused on cache-01:6379 (READONLY replica)"
+   ]
+  },
+  {
+   "id": "search-cluster",
+   "kind": "unknown service",
+   "service": "search",
+   "host": "es-02",
+   "titles": [
+    "es-02 elasticsearch: cluster health RED, 3 unassigned primary shards"
+   ]
+  },
+  {
+   "id": "mail-relay",
+   "kind": "unknown service",
+   "service": "mail-relay",
+   "host": "smtp-01",
+   "titles": [
+    "smtp-01 postfix: deferred queue above 5000 messages, relay host unreachable"
+   ]
+  },
+  {
+   "id": "tls-expired",
+   "kind": "near-miss (decoy runbook)",
+   "service": "storefront",
+   "host": "web-01",
+   "titles": [
+    "web-01 storefront.https: TLS handshake failed: certificate has expired"
+   ]
+  },
+  {
+   "id": "k8s-oom",
+   "kind": "near-miss (decoy runbook)",
+   "service": "storefront",
+   "host": "web-01",
+   "titles": [
+    "web-01 storefront: pod checkout-7d9f OOMKilled, container memory limit 512Mi reached"
+   ]
+  },
+  {
+   "id": "cloudsql-failover",
+   "kind": "near-miss (decoy runbook)",
+   "service": "orders-db",
+   "host": "db-01",
+   "titles": [
+    "db-01 orders-db: Cloud SQL instance failover to standby in progress"
+   ]
+  },
+  {
+   "id": "dns-failure",
+   "kind": "near-miss (no runbook)",
+   "service": "storefront",
+   "host": "web-01",
+   "titles": [
+    "web-01 storefront: getaddrinfo ENOTFOUND orders-api.internal (DNS resolution failed)"
+   ]
+  }
+ ]
+}

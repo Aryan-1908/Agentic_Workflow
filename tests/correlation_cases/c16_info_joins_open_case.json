@@ -1,0 +1,9 @@
+{
+ "description": "An open incident on orders-db, then an operator starts db-01 (info). The start is context for that case, not a new incident.",
+ "checks": "M2: info events related to an open case are merged into it",
+ "signals": [
+  {"id": "down", "minute": 0, "service": "orders-db", "title": "VM db-01 stopped reporting", "resource": "db-01", "metric": "compute.googleapis.com/instance/uptime", "severity": "critical"},
+  {"id": "start", "minute": 6, "service": "orders-db", "title": "db-01: VM started", "resource": "db-01", "metric": "vm_event/start", "severity": "info", "source": "cloud_audit", "type": "event"}
+ ],
+ "expect": {"groups": [["down", "start"]]}
+}

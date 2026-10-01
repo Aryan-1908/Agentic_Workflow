@@ -1,0 +1,35 @@
+# The fictional company the copilot operates: "Acme Shop", running on GCP.
+# resources: names (glob patterns) of GCP resources that belong to the service -> used by intake to name the service.
+# depends_on: used by correlation (M2) to link signals across services.
+# tier: 1 = customer-facing / revenue, 3 = internal; used for blast radius later.
+
+[services.storefront]
+description = "Customer-facing web shop"
+tier = 1
+resources = ["web-*", "storefront-*"]
+depends_on = ["orders-api", "payments-provider"]
+
+[services.orders-api]
+description = "Order placement and history API"
+tier = 1
+resources = ["orders-*"]
+depends_on = ["orders-db"]
+
+[services.orders-db]
+description = "PostgreSQL database for orders"
+tier = 1
+data = true          # holds data: never rotate/delete files here automatically (disk-full runbook: escalate)
+resources = ["db-*"]
+depends_on = []
+
+[services.reports-batch]
+description = "Nightly sales reports (internal)"
+tier = 3
+resources = ["batch-*", "reports-*"]
+depends_on = ["orders-db"]
+
+# Third-party dependencies we only observe through their public status page (Statuspage summary.json format).
+[external.payments-provider]
+description = "Card payments provider"
+tier = 1
+status_url = ""     # filled in once the stand-in provider is running on GCP

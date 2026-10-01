@@ -1,0 +1,39 @@
+{
+ "description": "Two storefront outages three hours apart are two incidents.",
+ "checks": "M2: time window",
+ "signals": [
+  {
+   "id": "morning",
+   "minute": 0,
+   "service": "storefront",
+   "title": "Uptime check storefront-home failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert",
+   "signal_id": "gcm:m:open"
+  },
+  {
+   "id": "noon",
+   "minute": 180,
+   "service": "storefront",
+   "title": "CPU > 85% on web-01",
+   "resource": "web-01",
+   "metric": "compute.googleapis.com/instance/cpu/utilization",
+   "severity": "warning",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "morning"
+   ],
+   [
+    "noon"
+   ]
+  ]
+ }
+}

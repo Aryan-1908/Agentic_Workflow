@@ -1,0 +1,40 @@
+# Jaeger v2 (itself an OTel Collector build): a UI for the traces the OTel Collector forwards to it.
+# Only for people to look at; the copilot never reads from Jaeger (its single input stays the Collector's file).
+# Run from the repo root:  tools/jaeger --config otel/jaeger.yaml     then open http://localhost:16686
+service:
+  extensions: [jaeger_storage, jaeger_query]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [jaeger_storage_exporter]
+  telemetry:
+    logs:
+      level: warn
+    metrics:
+      level: none        # no port 8888, so it runs next to the OTel Collector
+
+extensions:
+  jaeger_storage:
+    backends:
+      memstore:          # in memory: traces are gone when Jaeger stops (fine for a POC)
+        memory:
+          max_traces: 100000
+  jaeger_query:
+    storage:
+      traces: memstore
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: localhost:14317    # not 4317: that's the OTel Collector's
+      http:
+        endpoint: localhost:14318
+
+processors:
+  batch:
+
+exporters:
+  jaeger_storage_exporter:
+    trace_storage: memstore

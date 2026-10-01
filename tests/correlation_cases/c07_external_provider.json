@@ -1,0 +1,39 @@
+{
+ "description": "Catalogue #11: the payments provider's status page degrades, then storefront checkout errors.",
+ "checks": "M2: an external status-page outage joins the cases that depend on it; catalogue #11",
+ "signals": [
+  {
+   "id": "pay",
+   "minute": 0,
+   "service": "payments-provider",
+   "title": "PayFast: Card Authorization API partial outage",
+   "resource": "Card Authorization API",
+   "metric": null,
+   "severity": "error",
+   "source": "status:payments-provider",
+   "type": "status"
+  },
+  {
+   "id": "shop",
+   "minute": 2,
+   "service": "storefront",
+   "title": "Checkout error rate above 5%",
+   "resource": "web-01",
+   "metric": null,
+   "severity": "error",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "pay",
+    "shop"
+   ]
+  ],
+  "roots": {
+   "shop": "payments-provider"
+  }
+ }
+}

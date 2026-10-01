@@ -1,0 +1,12 @@
+{
+ "description": "The db cascade and the look-alike CPU trap happen together. The upstream db outage must not swallow batch-01's unrelated CPU alert: a dependency explains downtime, errors and latency downstream, not someone else's CPU.",
+ "checks": "M2: no false correlation through a dependency for local (saturation) symptoms; catalogue #13 + #14 together",
+ "signals": [
+  {"id": "db", "minute": 0, "service": "orders-db", "title": "VM db-01 stopped reporting", "resource": "db-01", "metric": "compute.googleapis.com/instance/uptime", "severity": "critical"},
+  {"id": "web-cpu", "minute": 0, "service": "storefront", "title": "CPU > 85% on web-01", "resource": "web-01", "metric": "compute.googleapis.com/instance/cpu/utilization", "severity": "warning"},
+  {"id": "batch-cpu", "minute": 0, "service": "reports-batch", "title": "CPU > 85% on batch-01", "resource": "batch-01", "metric": "compute.googleapis.com/instance/cpu/utilization", "severity": "warning"},
+  {"id": "api", "minute": 2, "service": "orders-api", "title": "Uptime check orders-health failing", "resource": "34.93.10.21", "metric": "monitoring.googleapis.com/uptime_check/check_passed", "severity": "critical"},
+  {"id": "shop", "minute": 3, "service": "storefront", "title": "Uptime check storefront-checkout failing", "resource": "34.93.10.20", "metric": "monitoring.googleapis.com/uptime_check/check_passed", "severity": "critical"}
+ ],
+ "expect": {"groups": [["db", "api", "shop", "web-cpu"], ["batch-cpu"]], "roots": {"db": "orders-db"}}
+}

@@ -1,0 +1,41 @@
+{
+ "description": "orders-api alerts, storefront alerts 25 min later: related, but too late to be sure. Kept apart, flagged.",
+ "checks": "M2: uncertain signals are not merged without the agent",
+ "signals": [
+  {
+   "id": "api",
+   "minute": 0,
+   "service": "orders-api",
+   "title": "Uptime check orders-health failing",
+   "resource": "34.93.10.21",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "shop",
+   "minute": 25,
+   "service": "storefront",
+   "title": "Uptime check storefront-checkout failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "api"
+   ],
+   [
+    "shop"
+   ]
+  ],
+  "needs_review": [
+   "shop"
+  ]
+ }
+}

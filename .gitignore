@@ -1,0 +1,9 @@
+runs/
+.venv/
+__pycache__/
+.env
+
+# never commit credentials
+*key*.json
+.cloudops/
+tools/

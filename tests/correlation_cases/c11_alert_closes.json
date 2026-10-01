@@ -1,0 +1,42 @@
+{
+ "description": "An alert opens and later closes: the close updates the case, it is not a new incident.",
+ "checks": "M2: closing signals",
+ "signals": [
+  {
+   "id": "open",
+   "minute": 0,
+   "service": "storefront",
+   "title": "Uptime check storefront-home failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert",
+   "signal_id": "gcm:7:open"
+  },
+  {
+   "id": "close",
+   "minute": 12,
+   "service": "storefront",
+   "title": "Uptime check storefront-home passing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert",
+   "signal_id": "gcm:7:closed",
+   "state": "closed"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "open",
+    "close"
+   ]
+  ],
+  "all_clear": [
+   "open"
+  ]
+ }
+}

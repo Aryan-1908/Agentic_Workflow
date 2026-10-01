@@ -1,0 +1,38 @@
+{
+ "description": "Catalogue #13 trap: CPU high on web-01 and on batch-01 in the same minute. Same alert, unrelated services.",
+ "checks": "M2: two look-alike but unrelated alerts become two cases; catalogue #13",
+ "signals": [
+  {
+   "id": "web",
+   "minute": 0,
+   "service": "storefront",
+   "title": "CPU > 85% on web-01",
+   "resource": "web-01",
+   "metric": "compute.googleapis.com/instance/cpu/utilization",
+   "severity": "warning",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  },
+  {
+   "id": "batch",
+   "minute": 0,
+   "service": "reports-batch",
+   "title": "CPU > 85% on batch-01",
+   "resource": "batch-01",
+   "metric": "compute.googleapis.com/instance/cpu/utilization",
+   "severity": "warning",
+   "source": "cloud_monitoring",
+   "type": "alert"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "web"
+   ],
+   [
+    "batch"
+   ]
+  ]
+ }
+}

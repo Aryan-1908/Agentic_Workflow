@@ -1,0 +1,10 @@
+{
+ "description": "orders-api and storefront start erroring, then orders-db reports its disk at 97%. An upstream saturation symptom can explain downstream errors, so it joins the incident as its likely origin.",
+ "checks": "M2: the local-symptom exception only applies downstream; upstream causes still correlate",
+ "signals": [
+  {"id": "api", "minute": 0, "service": "orders-api", "title": "Order write error rate above 5%", "resource": "orders-01", "severity": "error"},
+  {"id": "shop", "minute": 1, "service": "storefront", "title": "Uptime check storefront-checkout failing", "resource": "34.93.10.20", "metric": "monitoring.googleapis.com/uptime_check/check_passed", "severity": "critical"},
+  {"id": "db-disk", "minute": 2, "service": "orders-db", "title": "Disk usage 97% on db-01 data disk", "resource": "db-01", "metric": "agent.googleapis.com/disk/percent_used", "severity": "critical"}
+ ],
+ "expect": {"groups": [["api", "shop", "db-disk"]], "roots": {"api": "orders-db"}}
+}

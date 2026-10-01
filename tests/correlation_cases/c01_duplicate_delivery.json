@@ -1,0 +1,85 @@
+{
+ "description": "The same alert delivered twice by Pub/Sub, and a status page polled three times, count once each.",
+ "checks": "M2: duplicates collapse",
+ "signals": [
+  {
+   "id": "up",
+   "minute": 0,
+   "service": "storefront",
+   "title": "Uptime check storefront-checkout failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert",
+   "signal_id": "gcm:1:open"
+  },
+  {
+   "id": "up-again",
+   "minute": 1,
+   "service": "storefront",
+   "title": "Uptime check storefront-checkout failing",
+   "resource": "34.93.10.20",
+   "metric": "monitoring.googleapis.com/uptime_check/check_passed",
+   "severity": "critical",
+   "source": "cloud_monitoring",
+   "type": "alert",
+   "signal_id": "gcm:1:open"
+  },
+  {
+   "id": "pay",
+   "minute": 1,
+   "service": "payments-provider",
+   "title": "PayFast: Card Authorization API partial outage",
+   "resource": "Card Authorization API",
+   "metric": null,
+   "severity": "error",
+   "source": "status:payments-provider",
+   "type": "status",
+   "signal_id": "status:pf:api:partial_outage"
+  },
+  {
+   "id": "pay-poll2",
+   "minute": 2,
+   "service": "payments-provider",
+   "title": "PayFast: Card Authorization API partial outage",
+   "resource": "Card Authorization API",
+   "metric": null,
+   "severity": "error",
+   "source": "status:payments-provider",
+   "type": "status",
+   "signal_id": "status:pf:api:partial_outage"
+  },
+  {
+   "id": "pay-poll3",
+   "minute": 3,
+   "service": "payments-provider",
+   "title": "PayFast: Card Authorization API partial outage",
+   "resource": "Card Authorization API",
+   "metric": null,
+   "severity": "error",
+   "source": "status:payments-provider",
+   "type": "status",
+   "signal_id": "status:pf:api:partial_outage"
+  }
+ ],
+ "expect": {
+  "groups": [
+   [
+    "up",
+    "up-again",
+    "pay",
+    "pay-poll2",
+    "pay-poll3"
+   ]
+  ],
+  "unique_signals": {
+   "up": 2
+  },
+  "duplicates": [
+   "up-again",
+   "pay-poll2",
+   "pay-poll3"
+  ]
+ }
+}

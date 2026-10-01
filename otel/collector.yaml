@@ -1,0 +1,39 @@
+# The copilot's single input: everything arrives as OTLP and is written to one file the copilot reads.
+# Today the simulator (python -m sim) sends to it. Later, cloud receivers (googlecloudmonitoring, awscloudwatch,
+# azuremonitor, ...) are added here under `receivers` and to the pipelines; the copilot doesn't change.
+# Run from the repo root:  tools/otelcol-contrib --config otel/collector.yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: localhost:4318
+      grpc:
+        endpoint: localhost:4317
+
+processors:
+  batch:
+    timeout: 1s
+
+exporters:
+  file:
+    path: runs/otel/telemetry.jsonl      # one OTLP JSON document per line (resourceLogs / resourceMetrics / resourceSpans)
+    format: json
+  otlp_grpc/jaeger:                           # a copy of the traces for people to look at (otel/jaeger.yaml, UI on :16686)
+    endpoint: localhost:14317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true                      # if Jaeger isn't running, the copilot's file is unaffected
+    retry_on_failure:
+      enabled: false
+
+service:
+  telemetry:
+    logs:
+      level: warn
+    metrics:
+      level: none        # no internal metrics endpoint (port 8888): nothing to clash with a second Collector
+  pipelines:
+    logs:    {receivers: [otlp], processors: [batch], exporters: [file]}
+    metrics: {receivers: [otlp], processors: [batch], exporters: [file]}
+    traces:  {receivers: [otlp], processors: [batch], exporters: [file, otlp_grpc/jaeger]}

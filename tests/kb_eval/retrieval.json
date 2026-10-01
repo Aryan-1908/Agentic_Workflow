@@ -1,0 +1,231 @@
+{
+ "about": "Retrieval eval (M4). A question counts as found if any top-k chunk comes from one of its gold documents. Questions marked paraphrase share few or no words with the documents (they test meaning, not keywords).",
+ "questions": [
+  {
+   "q": "dev-backend-vm: VM stopped by a user; uptime check failing",
+   "gold": [
+    "runbooks/vm-stopped.md"
+   ]
+  },
+  {
+   "q": "VM stopped outside its instance schedule, service down",
+   "gold": [
+    "runbooks/vm-stopped.md"
+   ]
+  },
+  {
+   "q": "GCEGuestAgent: error setting initial metadatasshkey configuration: failed to remove user from google-sudoers",
+   "gold": [
+    "runbooks/guest-agent-errors.md",
+    "postmortems/2026-09-guest-agent-noise.md"
+   ]
+  },
+  {
+   "q": "burst of guest agent errors right after VM start, VM healthy",
+   "gold": [
+    "runbooks/guest-agent-errors.md",
+    "postmortems/2026-09-guest-agent-noise.md"
+   ]
+  },
+  {
+   "q": "health check connection refused but VM is running; systemd unit failed",
+   "gold": [
+    "runbooks/app-process-crashed.md"
+   ]
+  },
+  {
+   "q": "service keeps crashing again after restart",
+   "gold": [
+    "runbooks/app-process-crashed.md"
+   ]
+  },
+  {
+   "q": "CPU above 85% for 5 minutes on web-01, slow responses",
+   "gold": [
+    "runbooks/high-cpu.md"
+   ]
+  },
+  {
+   "q": "batch-01 at 100% CPU for hours, report job stuck in retry loop",
+   "gold": [
+    "runbooks/high-cpu.md",
+    "postmortems/2026-08-report-job-cpu.md"
+   ]
+  },
+  {
+   "q": "orders-api instances saturated by traffic spike, need more capacity",
+   "gold": [
+    "runbooks/high-cpu.md"
+   ]
+  },
+  {
+   "q": "No space left on device on boot disk, logs growing",
+   "gold": [
+    "runbooks/disk-full.md"
+   ]
+  },
+  {
+   "q": "orders-db data disk 100% full, PostgreSQL rejects writes",
+   "gold": [
+    "runbooks/disk-full.md",
+    "postmortems/2026-03-orders-db-disk-full.md"
+   ]
+  },
+  {
+   "q": "orders-api health: database unreachable; checkout 502",
+   "gold": [
+    "runbooks/db-connection-errors.md"
+   ]
+  },
+  {
+   "q": "alerts from orders-db, orders-api and storefront at the same time",
+   "gold": [
+    "runbooks/db-connection-errors.md",
+    "postmortems/2026-03-orders-db-disk-full.md"
+   ]
+  },
+  {
+   "q": "db-01 VM stopped reporting, orders cannot be placed",
+   "gold": [
+    "runbooks/db-connection-errors.md",
+    "runbooks/vm-stopped.md"
+   ]
+  },
+  {
+   "q": "errors started right after new instance template rolled out",
+   "gold": [
+    "runbooks/bad-release.md",
+    "postmortems/2026-05-storefront-bad-release.md"
+   ]
+  },
+  {
+   "q": "checkout error rate 30% after deployment of storefront release",
+   "gold": [
+    "runbooks/bad-release.md",
+    "postmortems/2026-05-storefront-bad-release.md"
+   ]
+  },
+  {
+   "q": "storefront uptime check times out, VM healthy, firewall rule deleted in audit log",
+   "gold": [
+    "runbooks/firewall-blocked.md",
+    "postmortems/2026-06-firewall-rule-deleted.md"
+   ]
+  },
+  {
+   "q": "should we open all ports from 0.0.0.0/0 to fix unreachable site",
+   "gold": [
+    "runbooks/firewall-blocked.md",
+    "postmortems/2026-06-firewall-rule-deleted.md"
+   ]
+  },
+  {
+   "q": "PayFast status page: Card Authorization API partial outage",
+   "gold": [
+    "runbooks/third-party-outage.md",
+    "postmortems/2026-07-payfast-outage.md"
+   ]
+  },
+  {
+   "q": "checkout returns 502 payment provider failing",
+   "gold": [
+    "runbooks/third-party-outage.md",
+    "postmortems/2026-07-payfast-outage.md"
+   ]
+  },
+  {
+   "q": "orders-db PostgreSQL on a VM not accepting connections",
+   "gold": [
+    "runbooks/db-connection-errors.md"
+   ]
+  },
+  {
+   "q": "VM out of memory, application killed",
+   "gold": [
+    "runbooks/app-process-crashed.md"
+   ]
+  },
+  {
+   "q": "storefront uptime check failing with connection timeout",
+   "gold": [
+    "runbooks/firewall-blocked.md",
+    "runbooks/vm-stopped.md",
+    "runbooks/app-process-crashed.md"
+   ]
+  },
+  {
+   "q": "we restarted orders-api but orders still fail",
+   "gold": [
+    "runbooks/db-connection-errors.md",
+    "postmortems/2026-03-orders-db-disk-full.md"
+   ]
+  },
+  {
+   "q": "nightly report job high CPU at scheduled time",
+   "gold": [
+    "runbooks/high-cpu.md",
+    "postmortems/2026-08-report-job-cpu.md"
+   ]
+  },
+  {
+   "q": "customers can't pay; the card company is having problems",
+   "gold": [
+    "runbooks/third-party-outage.md",
+    "postmortems/2026-07-payfast-outage.md"
+   ],
+   "paraphrase": true
+  },
+  {
+   "q": "the shop went dark right after someone tidied up the network settings",
+   "gold": [
+    "runbooks/firewall-blocked.md",
+    "postmortems/2026-06-firewall-rule-deleted.md"
+   ],
+   "paraphrase": true
+  },
+  {
+   "q": "machine powered off by a colleague and the website died",
+   "gold": [
+    "runbooks/vm-stopped.md"
+   ],
+   "paraphrase": true
+  },
+  {
+   "q": "the newest version we shipped is broken, go back to the old one",
+   "gold": [
+    "runbooks/bad-release.md",
+    "postmortems/2026-05-storefront-bad-release.md"
+   ],
+   "paraphrase": true
+  },
+  {
+   "q": "storage ran out on the box and the app cannot save anything",
+   "gold": [
+    "runbooks/disk-full.md"
+   ],
+   "paraphrase": true
+  },
+  {
+   "q": "login keys cleanup noise in logs every time the dev server boots",
+   "gold": [
+    "runbooks/guest-agent-errors.md",
+    "postmortems/2026-09-guest-agent-noise.md"
+   ],
+   "paraphrase": true
+  },
+  {
+   "q": "the program died and nothing answers on its port anymore",
+   "gold": [
+    "runbooks/app-process-crashed.md"
+   ],
+   "paraphrase": true
+  },
+  {
+   "q": "server is overloaded and everything is sluggish",
+   "gold": [
+    "runbooks/high-cpu.md"
+   ],
+   "paraphrase": true
+  }
+ ]
+}
