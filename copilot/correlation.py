@@ -65,13 +65,80 @@ class Case(BaseModel):
 
     @property
     def root_service(self) -> str | None:
-        """Most upstream service in the case: one the others depend on and that depends on none of them.
-        A hint for diagnosis, not a diagnosis."""
+        """The service to diagnose first. A hint for diagnosis, not a diagnosis.
+
+        Normally the most upstream service in the case: one the others depend on and that depends on
+        none of them. That is right for "something broke" — an outage explains its downstream errors.
+
+        It is wrong for "something is full". When a service runs out of workers or connections, the
+        requests pile up against a dependency that is busy but perfectly healthy, and that dependency
+        reports slow queries of its own. Both land in the case, the healthy one is upstream, and the
+        graph blames it (seen in pool_exhaustion_db_noisy: orders-api is out of workers, orders-db is
+        named the root and restarted).
+
+        So evidence wins over topology: a service reporting its OWN resource exhaustion is the
+        saturated one, and no dependency of it can be more responsible. Only when exactly one service
+        says this does it override the graph — two would be ambiguous, and ambiguity belongs with a
+        person, not with a tie-break rule.
+        """
         svcs = [s for s in self.services if s != UNKNOWN]
+        saturated = [s for s in svcs if self._is_saturated(s)]
+        if len(saturated) == 1:
+            return saturated[0]
         roots = [s for s in svcs if not any(o != s and dependency_path(s, o) for o in svcs)]
         if len(roots) == 1:
             return roots[0]
         return None
+
+    #: Phrases where a service reports ITS OWN capacity being exhausted. Deliberately narrow.
+    #: Excluded on purpose:
+    #:   "connection refused", "timeout"  — what a saturated service's victim reports
+    #:   "N of M connections in use"      — pressure arriving from elsewhere, not own exhaustion
+    #:   "slow query", "duration: ...ms"  — being busy is not being full
+    _SATURATION = ("pool exhausted", "pool saturated", "no worker available", "workers busy",
+                   "connection is not available", "remaining connection slots",
+                   "queue depth", "thread pool", "threads busy", "too many connections")
+
+    def _is_saturated(self, service: str) -> bool:
+        """Does this service report running out of a resource of its own?
+
+        Matched on signal text, because saturation has no metric yet: the telemetry carries cpu,
+        disk and process state, nothing for pool/worker/queue depth. When those metrics exist this
+        should read them instead — text matching is the stand-in, not the design.
+
+        A service only counts as saturated when it reports the exhaustion from its OWN resource,
+        which is why a signal merely quoting a dependency's error ("database error: FATAL:
+        remaining connection slots ...") does not: the phrase is there, but it is prefixed by the
+        dependency's own error. Without this, in db_connections_full both orders-db (really full)
+        and orders-api (quoting it) match, the count is two, and the rule gives up.
+        """
+        for s in self.signals:
+            if s.service != service or s.severity == Severity.info:
+                continue
+            text = f"{s.title} {s.raw.get('body', '')}".lower()
+            if self._relays_someone_else(text, service):
+                continue
+            if any(m in text for m in self._SATURATION):
+                return True
+        return False
+
+    def _relays_someone_else(self, text: str, service: str) -> bool:
+        """Is this signal quoting another service's failure rather than reporting its own?
+
+        Two ways it happens, and both would otherwise make the relaying service look saturated:
+          "database error: FATAL: remaining connection slots ..."   a prefix naming the failure's origin
+          "checkout failed: orders-api 503: no worker available"    another service named before the phrase
+
+        Without this, in pool_exhaustion_db_noisy the storefront matches on orders-api's quoted 503
+        and in db_connections_full orders-api matches on the database's quoted error — two services
+        look saturated, the count is no longer one, and the rule falls back to the graph.
+        """
+        if "database error" in text or "upstream" in text:
+            return True
+        others = [o for o in self.services if o != service and o != UNKNOWN]
+        first = min((text.index(m) for m in self._SATURATION if m in text), default=None)
+        return first is not None and any(
+            0 <= text.find(o.lower()) < first for o in others if o.lower() in text)
 
     @property
     def all_clear(self) -> bool:
