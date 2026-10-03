@@ -14,6 +14,7 @@ class Investigation(BaseModel):
     case_id: str
     evidence: str
     history: list[dict] = Field(default_factory=list)     # similar past cases: id, when, similarity, outcomes
+    rejections: list[dict] = Field(default_factory=list)  # actions a person refused here before, and why
     diagnosis: GroundedDiagnosis
     reused_from: str | None = None                        # past case whose checked diagnosis was reused (0 LLM calls)
 
@@ -24,7 +25,15 @@ class Investigator:
 
     def investigate(self, case) -> Investigation:
         history = self.memory.similar_cases(case) if self.memory is not None else []
+        # What people refused on this service before. Shown to the model so a refused action is not
+        # proposed again unchanged; it never reaches the allowlist or the risk tiers.
+        refused = []
+        if self.memory is not None and case.root_service:
+            from ..actions import ACTIONS
+            for a in ACTIONS:
+                refused += [{**r, "action": a} for r in self.memory.rejections(a, case.root_service)]
         g = diagnose_or_reuse(case, self.index, self.llm, judge=self.judge, memory=self.memory, progress=self.progress)
         reused = g.diagnosis.summary[len("[same as "):].split("]")[0] if g.diagnosis.summary.startswith("[same as ") else None
         return Investigation(case_id=case.case_id, evidence=incident_text(case), diagnosis=g, reused_from=reused,
-                             history=[{k: h[k] for k in ("case_id", "first_seen", "score", "outcomes")} for h in history])
+                             history=[{k: h[k] for k in ("case_id", "first_seen", "score", "outcomes")} for h in history],
+                             rejections=refused)

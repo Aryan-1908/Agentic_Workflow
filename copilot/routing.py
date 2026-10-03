@@ -91,7 +91,12 @@ def recommend(case, grounded, memory=None) -> Recommendation:
     confidence = d.confidence if grounded.grounded else min(d.confidence, 0.2)
     if memory is not None and action not in ("none", "escalate"):
         stats = memory.outcome_stats(action, service)
-        confidence = max(0.0, min(1.0, confidence + 0.05 * stats.get("resolved", 0) - 0.2 * stats.get("failed", 0)))
+        # A rejection counts like a failed execution: a person judged this the wrong action here, and
+        # caught it before anything ran. Without this the recommendation keeps its confidence and
+        # comes back unchanged however often it is refused.
+        rejected = len(memory.rejections(action, service, limit=20))
+        confidence = max(0.0, min(1.0, confidence + 0.05 * stats.get("resolved", 0)
+                                  - 0.2 * stats.get("failed", 0) - 0.2 * rejected))
     rollback = next((f"see {c.split('#')[0]}#rollback" for c in (step.citations if step else [])
                      if c.startswith("runbooks/")), "none documented")
     return Recommendation(action=action, target=target, service=service, blast_radius=blast, blast_reason=why,

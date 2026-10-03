@@ -134,6 +134,37 @@ class Memory:
                 out[d.get("result", "unknown")] = out.get(d.get("result", "unknown"), 0) + 1
         return out
 
+    def rejections(self, action: str, service: str | None = None, limit: int = 3) -> list[dict]:
+        """Times a person rejected this action, newest first: [{"by", "reason", "at", "citations"}].
+
+        The decision is on the case's `approval` event and the action on its `recommendation` event,
+        so the two are joined here. Until now a rejection was written and never read back:
+        outcome_stats() filters kind='outcome', and a rejection is kind='approval'. So confidence
+        never moved when a person said no, and the same recommendation came back unchanged.
+
+        Two uses, both deliberate:
+          - a count, to lower confidence (routing.py) — deterministic, auditable
+          - the reasons, shown to the model so it does not repeat a refused action (investigator)
+        The reason is free-form text typed during an incident. It is context for a diagnosis, never
+        input to the allowlist, the risk tiers or the safety reviewer.
+        """
+        out = []
+        for r in self.db.execute(
+                "SELECT a.case_id, a.at, a.data, c.services FROM case_events a JOIN cases c USING (case_id) "
+                "WHERE a.kind='approval' ORDER BY a.id DESC"):
+            d = json.loads(r["data"])
+            if d.get("decision") != "reject":
+                continue
+            if service is not None and service not in json.loads(r["services"]):
+                continue
+            rec = next((e for e in self.events(r["case_id"]) if e["kind"] == "recommendation"), None)
+            if rec and rec.get("action") == action:
+                out.append({"by": d.get("by"), "reason": d.get("reason"), "at": r["at"],
+                            "citations": rec.get("citations", [])})
+            if len(out) >= limit:
+                break
+        return out
+
     def recent_executions(self, action: str, target: str, since: datetime) -> int:
         """How many times an action was sent to a target since `since` (for the circuit breaker)."""
         n = 0

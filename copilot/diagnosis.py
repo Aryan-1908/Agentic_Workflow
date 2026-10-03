@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from . import resilience
 from .actions import ACTIONS
 from .config import services
+from .correlation import UNKNOWN
 from .signals import Severity
 
 DRAFT_PROMPT = """You diagnose an incident for the operations team, using ONLY the knowledge-base sections below.
@@ -136,8 +137,58 @@ def check_groundedness(d: Diagnosis, retrieved: dict[str, dict], judge=None, inc
     return GroundedDiagnosis(diagnosis=kept, removed=removed, grounded=root is not None, sources=list(retrieved))
 
 
+def per_service_evidence(case) -> str:
+    """What each service in the case looks like, one block per service.
+
+    A flat list of signals makes the model compare lines; a per-service block makes it compare
+    *services*, which is the question being asked — which one is the cause and which are affected.
+    Each block carries that service's own measurements (cpu, disk, any gauge that arrived), its own
+    errors, and whether it only relays someone else's failure.
+
+    "relaying" is the distinction that matters: storefront logging
+    "checkout failed: orders-api 503: no worker available" is a victim, not a cause, and without
+    saying so the model sees an error on storefront and can blame it.
+    """
+    blocks = []
+    for svc in case.services:
+        mine = [s for s in case.signals if s.service == svc]
+        if not mine:
+            continue
+        measured = {}
+        for s in mine:
+            if s.metric and s.value is not None:
+                measured[s.metric] = s.value          # last value wins; they arrive in order
+        own, relayed = [], []
+        for s in mine:
+            if s.severity == Severity.info:
+                continue
+            text = f"{s.title} {s.raw.get('body', '')}".lower()
+            others = [o for o in case.services if o != svc and o != UNKNOWN]
+            is_relay = ("database error" in text or "upstream" in text
+                        or any(o.lower() in text for o in others))
+            (relayed if is_relay else own).append(s.title)
+
+        # Counts and measurements only — the signal text is already listed once above, and repeating
+        # it here would make the same condition appear twice in the prompt.
+        bits = []
+        if measured:
+            bits.append(", ".join(f"{k}={v}" for k, v in sorted(measured.items())))
+        if own:
+            bits.append(f"{len(set(own))} error(s) of its own")
+        if relayed:
+            bits.append(f"{len(set(relayed))} relaying another service's failure")
+        if not own and not relayed:
+            bits.append("no errors of its own")
+        blocks.append(f"- {svc}: " + "; ".join(bits))
+    return "\n".join(blocks)
+
+
 def incident_text(case) -> str:
-    """What the case is about, for retrieval and prompts: its non-context signals, services and root service."""
+    """What the case is about, for retrieval and prompts.
+
+    Keeps the flat signal list (retrieval matches against it) and adds the per-service breakdown, so
+    the model can tell a saturated service from one that is merely downstream of it.
+    """
     lines = [f"services: {', '.join(case.services)}; likely origin: {case.root_service or 'unknown'}"]
     seen = set()
     for s in case.signals:
@@ -147,6 +198,9 @@ def incident_text(case) -> str:
         seen.add(key)
         tag = "context" if s.severity == Severity.info else s.severity.value
         lines.append(f"- [{tag}] {s.title}")
+    by_service = per_service_evidence(case)
+    if by_service:
+        lines += ["", "per service (own measurements and errors, vs failures relayed from elsewhere):", by_service]
     return "\n".join(lines)
 
 
