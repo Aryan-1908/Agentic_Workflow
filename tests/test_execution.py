@@ -144,9 +144,16 @@ def test_compute_agent_wont_start_a_vm_the_incident_doesnt_show_stopped(tmp_path
 
 
 def test_service_agent_wont_restart_on_a_stopped_vm(tmp_path):
+    """A restart of a stopped database is refused — now at the safety reviewer, before the service agent.
+
+    orders-db holds data, and service.restart interrupts a running service, so the reviewer blocks it
+    for every data service whatever its state (see DATA_UNSAFE). The service agent's own "start the VM
+    first" check still stands for non-data services; this case no longer reaches it.
+    """
     env = Env(tmp_path, "db_down")
     _, r = run(env, "service.restart", "Restart PostgreSQL on db-01.", "approval", "aryan", params={"vm": "db-01"})
-    assert r.result == "blocked" and r.agent == "service" and "vm.start" in r.detail
+    assert r.result == "blocked" and not r.sent
+    assert "holds data" in r.detail or "vm.start" in r.detail
 
 
 # ---- verification says no ----------------------------------------------------------------------------------

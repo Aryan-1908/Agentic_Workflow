@@ -40,6 +40,13 @@ def run(name, tmp_path):
 
 # scenario -> (services of each expected case, root of each), or [] for no incident
 EXPECT = {
+    # Capacity / saturation probe (tests/capacity_eval): nothing is broken, something is full.
+    "pool_exhaustion": [({"orders-api", "storefront"}, "orders-api")],
+    "pool_exhaustion_db_noisy": [({"orders-api", "storefront", "orders-db"}, "orders-db")],
+    "storefront_saturated": [({"storefront"}, "storefront")],
+    "batch_saturated": [({"reports-batch"}, "reports-batch")],
+    "db_connections_full": [({"orders-db", "orders-api", "storefront"}, "orders-db")],
+    "cpu_vs_capacity": [({"orders-api"}, "orders-api")],   # the CPU alert fires alone; no checkout failures
     "healthy": [],
     "vm_stopped": [({"storefront"}, "storefront")],
     "process_crash": [({"storefront"}, "storefront")],

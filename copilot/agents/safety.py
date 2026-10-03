@@ -11,6 +11,12 @@ from ..routing import LEVELS, Recommendation, RoutingPolicy
 
 BREAKER_LIMIT, BREAKER_WINDOW = 3, timedelta(hours=1)     # at most 3 attempts per action+target per hour
 
+# Actions that INTERRUPT a running service. On a service holding data (services.toml: data = true)
+# each drops in-flight transactions, so none may run unattended whatever the diagnosis says.
+# vm.start is deliberately absent: it starts something already stopped, so there is nothing in
+# flight to lose, and it is the correct fix when a database VM is down (scenario db_down).
+DATA_UNSAFE = ("logs.rotate", "vm.reset", "service.restart")
+
 
 class Verdict(BaseModel):
     allowed: bool
@@ -48,7 +54,11 @@ class SafetyReviewer:
         if spec.target_param == "vm" and rec.params["vm"] not in resources:
             return no(f"VM {rec.params['vm']} is not part of this incident")
         svc = services().get(rec.service or "")
-        if rec.action in ("logs.rotate", "vm.reset") and svc is not None and svc.data:
+        # Anything that interrupts a service holding data drops its in-flight transactions, so it is
+        # never automatic. service.restart was missing here: a saturated database (connection slots
+        # full, CPU and disk normal) is diagnosed correctly and then restarted, which is the one
+        # action that loses data. The guard is on what the action DOES, not on which runbook found it.
+        if rec.action in DATA_UNSAFE and svc is not None and svc.data:
             return no(f"{rec.action} on {rec.service} is never automatic: it holds data (runbook: escalate)")
         if lane == "auto":
             if LEVELS.index(rec.blast_radius) > LEVELS.index(self.policy.auto_max_blast):

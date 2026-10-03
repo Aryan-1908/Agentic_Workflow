@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copilot Scenario Runner</title>
+<style>
+  :root {
+    --bg: #fbfbfa; --panel: #fff; --ink: #1a1a18; --muted: #6b6b66;
+    --line: #e4e4e0; --accent: #2d5f4f; --ok: #1f7a4d; --bad: #b3261e;
+    --warn: #8a6d1f; --chip: #f2f2ef;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16161a; --panel: #1e1e23; --ink: #ececea; --muted: #9a9a95;
+      --line: #32323a; --accent: #6fbf9c; --ok: #4fc98a; --bad: #ff8a80;
+      --warn: #d9b760; --chip: #26262c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16161a; --panel: #1e1e23; --ink: #ececea; --muted: #9a9a95;
+    --line: #32323a; --accent: #6fbf9c; --ok: #4fc98a; --bad: #ff8a80;
+    --warn: #d9b760; --chip: #26262c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    padding: 20px 16px 14px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 16px; }
+  h1 { margin: 0 0 4px; font-size: 19px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); font-size: 13.5px; }
+  main { display: grid; grid-template-columns: 330px 1fr; gap: 20px; padding: 20px 0 48px; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .card h2 {
+    margin: 0; padding: 12px 14px; font-size: 12px; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line);
+  }
+  .list { max-height: 72vh; overflow-y: auto; }
+  .item {
+    padding: 10px 14px; border-bottom: 1px solid var(--line); cursor: pointer;
+    display: block; width: 100%; text-align: left; background: none; border-left: 3px solid transparent;
+    color: inherit; font: inherit;
+  }
+  .item:hover { background: var(--chip); }
+  .item[aria-current="true"] { border-left-color: var(--accent); background: var(--chip); }
+  .item .nm { font-weight: 600; font-size: 14px; }
+  .item .ds { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .uc {
+    display: inline-block; font-family: var(--mono); font-size: 10.5px;
+    background: var(--chip); border: 1px solid var(--line); border-radius: 4px;
+    padding: 0 5px; margin-left: 6px; color: var(--muted);
+  }
+  .pane { padding: 16px; min-height: 240px; }
+  .empty { color: var(--muted); padding: 48px 16px; text-align: center; }
+
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  button.run {
+    background: var(--accent); color: #fff; border: 0; border-radius: 7px;
+    padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  button.run:disabled { opacity: .5; cursor: default; }
+  :root[data-theme="dark"] button.run,
+  :root:not([data-theme="light"]) button.run { color: #10231c; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) button.run { color: #fff; } }
+
+  .verdict { font-weight: 700; font-size: 15px; }
+  .verdict.pass { color: var(--ok); } .verdict.fail { color: var(--bad); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 10px; }
+  th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; }
+  td.m { font-family: var(--mono); font-size: 12.5px; }
+  .tick { color: var(--ok); font-weight: 700; } .cross { color: var(--bad); font-weight: 700; }
+
+  .lane { font-family: var(--mono); font-size: 11.5px; padding: 1px 7px; border-radius: 4px;
+          border: 1px solid var(--line); background: var(--chip); }
+  .lane.auto { color: var(--ok); } .lane.approval { color: var(--warn); } .lane.escalate { color: var(--bad); }
+
+  .steps { margin: 14px 0 0; padding: 0; list-style: none; font-size: 13.5px; }
+  .steps li { padding: 6px 0 6px 20px; position: relative; border-bottom: 1px solid var(--line); }
+  .steps li::before { content: "→"; position: absolute; left: 0; color: var(--muted); }
+  .steps b { font-weight: 600; }
+  .note { color: var(--muted); font-size: 12.5px; margin-top: 12px; }
+  .err { color: var(--bad); font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; }
+  .traps { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .trap { font-size: 12px; padding: 3px 9px; border-radius: 5px; border: 1px solid var(--line); background: var(--chip); }
+  .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--line);
+          border-top-color: var(--accent); border-radius: 50%; animation: s .7s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Incident Copilot — scenario runner</h1>
+  <div class="sub">Pick a scenario, break the simulated company, see what the agents do. No cloud account.</div>
+</div></header>
+
+<div class="wrap"><main>
+  <section class="card">
+    <h2>Scenarios</h2>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section class="card">
+    <h2>Result</h2>
+    <div class="pane" id="pane"><div class="empty">Select a scenario, then press Run.</div></div>
+  </section>
+</main></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let scenarios = [], current = null;
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function load() {
+  scenarios = await (await fetch('/api/scenarios')).json();
+  $('#list').innerHTML = scenarios.map((s, i) => `
+    <button class="item" data-i="${i}" ${s.scored ? '' : 'disabled style="opacity:.45"'}>
+      <div class="nm">${esc(s.name)}<span class="uc">${esc(s.use_case)}</span></div>
+      <div class="ds">${esc(s.description)}</div>
+    </button>`).join('');
+  $('#list').querySelectorAll('.item').forEach(b =>
+    b.addEventListener('click', () => select(+b.dataset.i)));
+}
+
+function select(i) {
+  current = scenarios[i];
+  $('#list').querySelectorAll('.item').forEach(b =>
+    b.setAttribute('aria-current', +b.dataset.i === i));
+  const exp = current.expected.map(e =>
+    `<li><b>${esc(e.root)}</b> → <span class="lane ${esc(e.lanes[0]||'')}">${esc(e.lanes[0]||'—')}</span>
+      ${esc(e.actions.join(', ') || 'no action')}</li>`).join('') ||
+    '<li>no incident should be raised</li>';
+  $('#pane').innerHTML = `
+    <div class="bar"><button class="run" id="go">Run scenario</button>
+      <span class="sub">${esc(current.description)}</span></div>
+    <h3 style="font-size:13px;margin:16px 0 4px;color:var(--muted)">EXPECTED</h3>
+    <ul class="steps">${exp}</ul>`;
+  $('#go').addEventListener('click', run);
+}
+
+async function run() {
+  const btn = $('#go');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> running';
+  try {
+    const res = await fetch('/api/run', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({scenario: current.name})
+    });
+    render(await res.json());
+  } catch (e) {
+    $('#pane').innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  }
+}
+
+function render(d) {
+  if (d.error) {
+    $('#pane').innerHTML = `<div class="bar"><button class="run" id="go">Run again</button></div>
+      <div class="err">${esc(d.error)}</div>`;
+    $('#go').addEventListener('click', run); return;
+  }
+  const inc = d.result.incidents || [];
+  const m = d.metrics || {};
+  const traps_ = Object.values(d.result.traps || {});
+  // A trap scenario deliberately feeds a WRONG recommendation to prove the guardrail blocks it,
+  // so per-incident `ok` is false by design there. The trap verdict is what matters; only judge
+  // on `ok` when the scenario has no trap to satisfy.
+  const allOk = traps_.length
+    ? traps_.every(t => t.ok)
+    : inc.every(i => i.ok !== false);
+  const blocked = inc.filter(i => i.sent === false && /escalat|block/i.test(i.status || ''));
+
+  const rows = inc.map(i => `
+    <tr>
+      <td class="m">${esc(i.case_id)}</td>
+      <td><b>${esc(i.root)}</b><div class="sub">${esc((i.services||[]).join(', '))}</div></td>
+      <td class="m">${esc(i.action)}<div class="sub">${esc(i.target||'')}</div></td>
+      <td><span class="lane ${esc(i.lane)}">${esc(i.lane)}</span>
+          <div class="sub">conf ${esc(i.confidence)} · ${esc(i.blast_radius)}</div></td>
+      <td>${esc(i.status)}</td>
+      <td class="${i.ok ? 'tick' : 'cross'}">${i.ok ? '✓' : '✗'}</td>
+    </tr>`).join('');
+
+  const traps = Object.entries(d.result.traps || {}).map(([k, v]) =>
+    `<span class="trap"><span class="${v.ok?'tick':'cross'}">${v.ok?'✓':'✗'}</span> ${esc(k)}</span>`).join('');
+
+  $('#pane').innerHTML = `
+    <div class="bar">
+      <button class="run" id="go">Run again</button>
+      <span class="verdict ${allOk ? 'pass' : 'fail'}">${allOk ? 'Behaved correctly' : 'Mismatch vs expected'}</span>
+      <span class="sub">${esc(d.mode)} mode</span>
+    </div>
+    ${blocked.length ? `<div class="note" style="color:var(--ok)">
+      <b>Guardrail held.</b> The recommendation was wrong and a human approved it anyway —
+      the Safety Reviewer still refused to execute it.</div>` : ''}
+    ${inc.length ? `<table>
+      <tr><th>Case</th><th>Root cause</th><th>Action</th><th>Lane</th><th>Outcome</th><th></th></tr>
+      ${rows}</table>` : '<div class="note">No incident raised — which was the expected result.</div>'}
+    ${traps ? `<div class="traps">${traps}</div>` : ''}
+    ${inc.length ? `<table style="margin-top:18px">
+      <tr><th>Fault → open</th><th>→ correlated</th><th>→ resolved</th><th>Correlation errors</th></tr>
+      <tr>
+        <td class="m">${esc(inc[0].fault_to_open_min)} min</td>
+        <td class="m">${esc(inc[0].fault_to_correlated_min)} min</td>
+        <td class="m">${esc(inc[0].fault_to_end_min)} min</td>
+        <td class="m">${esc(m.false_correlation_rate ?? 0)}</td>
+      </tr></table>` : ''}
+    <div class="note">Correlation, routing, safety checks, execution and verification are the real
+      pipeline. In offline mode only the diagnosis text is scripted, so runs are deterministic.</div>`;
+  $('#go').addEventListener('click', run);
+}
+
+load();
+</script>
+</body>
+</html>

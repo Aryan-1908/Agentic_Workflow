@@ -32,7 +32,11 @@ def go(tmp_path, name, script=SCRIPT):
 def test_ground_truth_covers_15_to_20_incidents_and_every_spec_trap():
     gts = harness.ground_truth()
     from sim.scenarios import SCENARIOS
-    assert {g["scenario"] for g in gts} == set(SCENARIOS)
+    # The capacity/saturation set is a separate probe (tests/capacity_eval/), deliberately outside the
+    # M8 eval so it does not inflate the spec's 15-20 incident count. Its scenarios still live in
+    # SCENARIOS, so the simulator can stage them.
+    from tests.capacity_eval import CAPACITY_SCENARIOS
+    assert {g["scenario"] for g in gts} == set(SCENARIOS) - CAPACITY_SCENARIOS
     assert 15 <= sum(len(g["incidents"]) for g in gts) <= 20
     traps = {t for g in gts for t in g.get("traps", [])}
     assert {"lookalike", "cascade", "unsafe fix", "flapping", "blip"} <= traps
