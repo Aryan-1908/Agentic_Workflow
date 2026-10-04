@@ -54,6 +54,13 @@ class SafetyReviewer:
         if spec.target_param == "vm" and rec.params["vm"] not in resources:
             return no(f"VM {rec.params['vm']} is not part of this incident")
         svc = services().get(rec.service or "")
+        # A third party's infrastructure is not ours to act on, at any confidence: we have no
+        # credentials for it and no right to use them. The service map already marks these external
+        # (config/services.toml [external.*]) and the spec's U9 says an external outage is
+        # "escalate (not ours to fix)", but nothing enforced it — vm.reset on the payments provider
+        # was allowed. Escalation and "none" are fine: they change nothing on their side.
+        if svc is not None and getattr(svc, "external", False) and spec.family not in ("none", "escalation"):
+            return no(f"{rec.service} is a third-party service: {rec.action} is not ours to run (escalate)")
         # Anything that interrupts a service holding data drops its in-flight transactions, so it is
         # never automatic. service.restart was missing here: a saturated database (connection slots
         # full, CPU and disk normal) is diagnosed correctly and then restarted, which is the one

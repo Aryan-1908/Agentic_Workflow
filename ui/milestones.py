@@ -105,9 +105,9 @@ MILESTONES = [
             ("copilot/agents/safety.py", "code, not a prompt — allowlist, blast radius, groundedness, "
                                          "parameter bounds, circuit breaker, data-service guard"),
             ("copilot/agents/verify.py", "post-action signal state; rolls back or escalates"),
-            ("copilot/actions.py", "the allowlist: 9 actions with schemas"),
+            ("copilot/actions.py", "the allowlist: 11 actions with schemas"),
         ],
-        "tests": ["tests/test_agents.py", "tests/test_execution.py"],
+        "tests": ["tests/test_agents.py", "tests/test_execution.py", "tests/test_service_rules.py"],
         "demo": "disk_full — the approver says yes to a wrong fix and the safety reviewer refuses anyway.",
         "status": "done",
     },
@@ -158,6 +158,11 @@ BEYOND = [
     ("Per-service evidence for the diagnosis", "copilot/diagnosis.py",
      "The model saw one flat list of signals. It now sees each service separately, with its own "
      "measurements and whether its errors are its own or relayed from elsewhere — cause versus casualty."),
+    ("Third-party infrastructure could be actioned", "copilot/agents/safety.py",
+     "config/services.toml marks the payments provider external and the spec says an external outage "
+     "is 'escalate (not ours to fix)', but nothing enforced it: vm.reset on the provider was allowed. "
+     "We have no credentials for someone else's infrastructure and no right to use them. Now refused "
+     "for every action except escalate."),
     ("Rejections change the next recommendation", "copilot/memory.py, routing.py, investigator.py",
      "A rejection was written and never read back, so the same wrong fix returned unchanged. It now "
      "lowers confidence like a failed execution (0 rejections: auto, 1: approval, 3: escalate) and the "
