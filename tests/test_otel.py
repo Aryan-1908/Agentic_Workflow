@@ -40,6 +40,12 @@ def run(name, tmp_path):
 
 # scenario -> (services of each expected case, root of each), or [] for no incident
 EXPECT = {
+    # Real-world service shapes: the same symptom on services of different kinds.
+    "provider_degraded": [({"payments-provider", "storefront"}, "payments-provider")],
+    "web_disk_full": [({"storefront"}, "storefront")],
+    "cert_expiring": [({"storefront"}, "storefront")],
+    "batch_overrun": [({"orders-db", "reports-batch"}, "orders-db")],
+    "two_faults": [({"storefront"}, "storefront"), ({"reports-batch"}, "reports-batch")],
     # Capacity / saturation probe (tests/capacity_eval): nothing is broken, something is full.
     "pool_exhaustion": [({"orders-api", "storefront"}, "orders-api")],
     "pool_exhaustion_db_noisy": [({"orders-api", "storefront", "orders-db"}, "orders-api")],  # saturation beats the graph

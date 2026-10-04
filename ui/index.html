@@ -119,6 +119,27 @@
                  border-radius: 7px; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
   .pick button:hover { background: var(--chip); }
   .pick .lbl { font-size: 12px; color: var(--muted); align-self: center; margin-right: 2px; }
+  .step { border-left: 2px solid var(--line); padding: 0 0 14px 16px; margin-left: 6px; position: relative; }
+  .step:last-child { padding-bottom: 0; }
+  .step::before { content: ""; position: absolute; left: -5px; top: 5px; width: 8px; height: 8px;
+                  border-radius: 50%; background: var(--accent); }
+  .step h4 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+             color: var(--muted); font-weight: 700; }
+  .sig { font-family: var(--mono); font-size: 12px; padding: 3px 0; }
+  .sig .src { display: inline-block; min-width: 108px; color: var(--muted); }
+  .sev-error { color: var(--bad); } .sev-warning { color: var(--warn); } .sev-info { color: var(--muted); }
+  .svc { border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px; margin-bottom: 7px; }
+  .svc.cause { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 7%, transparent); }
+  .svc .n { font-weight: 600; font-size: 13.5px; }
+  .svc .tag { font-size: 11px; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--line);
+              margin-left: 6px; }
+  .svc .why { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .svc code { font-family: var(--mono); font-size: 11.5px; }
+  details.more > summary { cursor: pointer; font-size: 12.5px; color: var(--muted); padding: 6px 0;
+                           list-style: none; }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::before { content: "\25b8 "; }
+  details.more[open] > summary::before { content: "\25be "; }
   .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--line);
           border-top-color: var(--accent); border-radius: 50%; animation: s .7s linear infinite; }
   @keyframes s { to { transform: rotate(360deg); } }
@@ -210,6 +231,58 @@ async function run() {
   }
 }
 
+function reasoning(d) {
+  const cases = Object.entries(d.detail || {});
+  if (!cases.length) return '';
+  return cases.map(([cid, c]) => {
+    const sigs = c.signals.map(s => `
+      <div class="sig"><span class="src">[${esc(s.source)}]</span>
+        <span class="sev-${esc(s.severity)}">${esc(s.service)}</span>:
+        ${esc(s.title)}${s.value != null ? ` <b>= ${esc(s.value)}</b>` : ''}</div>`).join('');
+
+    const svcs = Object.entries(c.by_service).map(([name, b]) => {
+      const isCause = name === c.root_service;
+      const measured = Object.entries(b.measured).map(([k, v]) => `<code>${esc(k)}=${esc(v)}</code>`).join(' ');
+      let why;
+      if (b.own.length && isCause)      why = `says it has a problem of its own \u2014 and is the only one, so this is the cause`;
+      else if (b.relayed.length && !b.own.length) why = `only repeats another service\u2019s failure \u2014 a casualty, not the cause`;
+      else if (b.own.length)            why = `has its own errors, but another service is a better match`;
+      else                              why = `no errors of its own`;
+      return `<div class="svc ${isCause ? 'cause' : ''}">
+        <span class="n">${esc(name)}</span>
+        ${isCause ? '<span class="tag" style="color:var(--bad)">ROOT CAUSE</span>' : ''}
+        ${b.own.length ? `<span class="tag">${b.own.length} own</span>` : ''}
+        ${b.relayed.length ? `<span class="tag">${b.relayed.length} relayed</span>` : ''}
+        <div class="why">${why}</div>
+        ${measured ? `<div class="why">measured: ${measured}</div>` : ''}
+        ${b.own.map(t => `<div class="sig">\u2022 ${esc(t)}</div>`).join('')}
+        ${b.relayed.map(t => `<div class="sig" style="color:var(--muted)">\u21b3 ${esc(t)}</div>`).join('')}
+      </div>`;
+    }).join('');
+
+    const events = c.events.map(e => `
+      <div class="sig"><span class="src">${esc(e.kind)}</span>
+        ${esc(JSON.stringify(e.detail).slice(0, 170))}</div>`).join('');
+
+    return `
+      <h3 style="font-size:12px;margin:22px 0 10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">
+        How it decided \u2014 ${esc(cid)}</h3>
+
+      <div class="step"><h4>1 \u00b7 What arrived</h4>
+        <div class="sub" style="margin-bottom:6px">${c.signals.length} signal(s) across
+          ${c.services.length} service(s) \u2014 metrics, logs, alerts and traces</div>${sigs}</div>
+
+      <div class="step"><h4>2 \u00b7 Why they became one incident</h4>
+        ${c.rationale.map(r => `<div class="sig">${esc(r)}</div>`).join('')}</div>
+
+      <div class="step"><h4>3 \u00b7 Which service is at fault</h4>${svcs}</div>
+
+      <div class="step"><h4>4 \u00b7 What happened next</h4>
+        <details class="more"><summary>decision trail (${c.events.length} steps)</summary>
+          ${events}</details></div>`;
+  }).join('');
+}
+
 function render(d) {
   if (d.error) {
     $('#pane').innerHTML = `<div class="bar"><button class="run" id="go">Run again</button></div>
@@ -262,6 +335,7 @@ function render(d) {
         <td class="m">${esc(inc[0].fault_to_end_min)} min</td>
         <td class="m">${esc(m.false_correlation_rate ?? 0)}</td>
       </tr></table>` : ''}
+    ${reasoning(d)}
     <div class="note">Correlation, routing, safety checks, execution and verification are the real
       pipeline. In offline mode only the diagnosis text is scripted, so runs are deterministic.</div>`;
   $('#go').addEventListener('click', run);

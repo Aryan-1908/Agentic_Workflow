@@ -140,6 +140,73 @@ def _cpu_vs_capacity(w: World):
     ]
 
 
+def _provider_degraded_partial(w: World):
+    """The payment provider half-works: card authorisation fails, webhooks are fine.
+
+    Real third-party outages are usually partial. The checkout errors look like ours, and the only
+    thing that says otherwise is the provider's status page. The system must read that, attribute
+    the incident to the provider, and escalate — it has no credentials for their infrastructure and
+    no right to use them.
+    """
+    w.payfast["Card Authorization API"] = "partial_outage"
+    w.extra_errors += [
+        ("storefront", "web-01", "storefront.checkout",
+         "checkout failed: PayFast authorization unavailable (503)"),
+    ]
+
+
+def _disk_fills_on_web(w: World):
+    """A boot disk filling with application logs on a stateless web server.
+
+    The same symptom as a database disk filling, and the opposite correct action: here the files are
+    logs and rotating them is safe, because web-01 holds no data (services.toml: data is not set).
+    Pairs with disk_full on orders-db, where rotation would destroy database files.
+    """
+    w.disk_growth["web-01"] = 0.05
+    w.extra_errors += [
+        ("storefront", "web-01", "storefront.log",
+         "log rotation overdue: /var/log/storefront grew to 42 GB"),
+    ]
+
+
+def _cert_expiring(w: World):
+    """A TLS certificate about to expire on the storefront.
+
+    There is a decoy runbook for certificate expiry (ssl-certificate-expiry.md), and no registered
+    action that can renew one. The right answer is to escalate with the right cause, not to invent a
+    fix. Tests that a grounded diagnosis with no runnable action still reaches a person usefully.
+    """
+    w.extra_errors += [
+        ("storefront", "web-01", "storefront.tls",
+         "x509: certificate for shop.acme.example expires in 46 hours"),
+    ]
+
+
+def _batch_overruns_into_business_hours(w: World):
+    """The nightly report job is still running at 09:00 and loading the shared database.
+
+    Two services are involved and NEITHER is broken: reports-batch is doing exactly what it was told
+    to, and orders-db is healthy but loaded. The honest answer is a person, not a restart of either.
+    """
+    w.cpu_override["batch-01"] = 0.93
+    w.extra_errors += [
+        ("reports-batch", "batch-01", "reports.job",
+         "nightly report still running after 9h; started 00:15, now 09:20"),
+        ("orders-db", "db-01", "postgres",
+         "LOG: duration: 4210.882 ms  statement: SELECT * FROM orders WHERE created_at > $1"),
+    ]
+
+
+def _two_independent_faults(w: World):
+    """Two real, unrelated incidents at the same moment: web-01 stopped and batch-01 CPU-bound.
+
+    Different services, no dependency between them, same minute. They must stay two cases with two
+    different fixes. An alert storm that merges them would send one fix to the wrong machine.
+    """
+    w.stop_vm("web-01", actor="dana@example.com")
+    w.cpu_override["batch-01"] = 0.96
+
+
 SCENARIOS = {
     "healthy": ("nothing goes wrong", "-", []),
     "vm_stopped": ("a user stops web-01; the storefront goes down", "U1",
@@ -185,6 +252,16 @@ SCENARIOS = {
                             "capacity on data", [(0, _db_connections_full)]),
     "cpu_vs_capacity": ("orders-01 has both high CPU and a saturated pool: genuinely ambiguous",
                         "capacity ambiguous", [(0, _cpu_vs_capacity)]),
+    "provider_degraded": ("the payment provider's card API is partly down; webhooks still work",
+                          "U9 third party", [(0, _provider_degraded_partial)]),
+    "web_disk_full": ("the storefront's boot disk fills with application logs (rotation is safe here)",
+                      "U5 on a stateless service", [(0, _disk_fills_on_web)]),
+    "cert_expiring": ("the storefront's TLS certificate expires in two days; no action can renew it",
+                      "grounded but not actionable", [(0, _cert_expiring)]),
+    "batch_overrun": ("the nightly report is still running at 09:00 and loading the shared database",
+                      "nothing is broken", [(0, _batch_overruns_into_business_hours)]),
+    "two_faults": ("web-01 is stopped and batch-01 is CPU-bound in the same minute, unrelated",
+                   "two incidents", [(0, _two_independent_faults)]),
     "novel": ("an unknown service, session-cache, starts failing: nothing in the knowledge base covers it", "U12",
               [(0, lambda w: w.extra_errors.append(("session-cache", "cache-01", "redis",
                                                     "redis: connection refused on cache-01:6379 (READONLY replica)")))]),

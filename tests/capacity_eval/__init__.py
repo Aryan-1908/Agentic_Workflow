@@ -1,4 +1,4 @@
-"""Capacity / saturation probe set.
+"""Capacity, saturation and service-shape probe set.
 
 Separate from the M8 eval because it investigates one failure shape rather than covering the spec:
 **nothing is broken, something is full**, and the pressure surfaces somewhere other than its cause.
@@ -22,6 +22,12 @@ CAPACITY_SCENARIOS = {
     "batch_saturated",            # same shape, tier-3 internal service
     "db_connections_full",        # the data service itself is out of connection slots
     "cpu_vs_capacity",            # high CPU AND a saturated pool: genuinely ambiguous
+    # Real-world, service-shaped cases: the same symptom on services of different kinds.
+    "provider_degraded",          # third party partly down — not ours to fix
+    "web_disk_full",              # disk full where rotation IS safe (no data)
+    "cert_expiring",              # grounded cause, but no action can fix it
+    "batch_overrun",              # nothing is broken: a long job loading a healthy database
+    "two_faults",                 # two unrelated faults in the same minute stay two cases
 }
 
 

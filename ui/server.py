@@ -155,13 +155,15 @@ def run_scenario(name: str, live: bool = False) -> dict:
 
     agents = _live_agents() if live else _scripted_agents(name)
     with _lock, tempfile.TemporaryDirectory() as tmp:
+        tmpdir = pathlib.Path(tmp)
         result = harness.run_scenario(
-            gt,
-            pathlib.Path(tmp) / name,
-            agents,
-            POLICY,
+            gt, tmpdir / name, agents, POLICY,
             kb_source=(pathlib.Path("runs") / "memory.sqlite") if live else None,
         )
+        # The reasoning lives in the run's memory database: the signals that arrived, why each one
+        # joined the case, and every step from diagnosis to outcome. Without it the UI shows a
+        # verdict with no way to check it.
+        detail = _reasoning(tmpdir)
 
     return {
         "scenario": name,
@@ -170,7 +172,47 @@ def run_scenario(name: str, live: bool = False) -> dict:
         "mode": "live" if live else "offline",
         "result": result,
         "metrics": harness.metrics([result]),
+        "detail": detail,
     }
+
+
+def _reasoning(run_dir: pathlib.Path) -> dict:
+    """Signals, correlation rationale and the decision trail, per case."""
+    from copilot.correlation import Case
+    from copilot.memory import Memory
+
+    db = next(run_dir.rglob("memory.sqlite"), None)
+    if db is None:
+        return {}
+    m = Memory(db)
+    out = {}
+    for row in m.db.execute("SELECT case_id, data FROM cases"):
+        case = Case.model_validate_json(row["data"])
+        by_service: dict[str, dict] = {}
+        for sig in case.signals:
+            b = by_service.setdefault(sig.service, {"measured": {}, "own": [], "relayed": []})
+            if sig.metric and sig.value is not None:
+                b["measured"][sig.metric] = sig.value
+            if sig.severity.value == "info":
+                continue
+            text = sig.title.lower()
+            others = [o for o in case.services if o != sig.service and o != "unknown"]
+            relay = ("database error" in text or "upstream" in text
+                     or any(o.lower() in text for o in others))
+            b["relayed" if relay else "own"].append(sig.title)
+        out[row["case_id"]] = {
+            "services": case.services,
+            "root_service": case.root_service,
+            "signals": [{"source": s.source, "service": s.service, "severity": s.severity.value,
+                         "title": s.title, "metric": s.metric, "value": s.value}
+                        for s in case.signals],
+            "rationale": case.rationale,
+            "by_service": by_service,
+            "events": [{"kind": e["kind"], "at": e["at"],
+                        "detail": {k: v for k, v in e.items() if k not in ("kind", "at")}}
+                       for e in m.events(row["case_id"])],
+        }
+    return out
 
 
 class Handler(BaseHTTPRequestHandler):
