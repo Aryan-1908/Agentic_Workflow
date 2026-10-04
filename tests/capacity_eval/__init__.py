@@ -28,6 +28,13 @@ CAPACITY_SCENARIOS = {
     "cert_expiring",              # grounded cause, but no action can fix it
     "batch_overrun",              # nothing is broken: a long job loading a healthy database
     "two_faults",                 # two unrelated faults in the same minute stay two cases
+    # Incidents that actually fill an on-call rota: nothing broken, or the obvious suspect is wrong.
+    "traffic_peak",               # thresholds cross because business is good
+    "cert_expired",               # total outage, every service healthy
+    "dns_failure",                # DB unreachable, DB is fine
+    "memory_leak",                # a restart helps and does not fix it
+    "deploy_coincidence",         # the deploy is innocent
+    "noisy_neighbour",            # two services, neither faulty
 }
 
 

@@ -40,6 +40,13 @@ def run(name, tmp_path):
 
 # scenario -> (services of each expected case, root of each), or [] for no incident
 EXPECT = {
+    # Incidents that actually fill an on-call rota.
+    "traffic_peak": [({"orders-api", "storefront"}, "orders-api")],
+    "cert_expired": [({"storefront"}, "storefront")],
+    "dns_failure": [({"orders-api", "storefront"}, "orders-api")],
+    "memory_leak": [({"orders-api"}, "orders-api")],
+    "deploy_coincidence": [({"orders-api", "orders-db", "storefront"}, "orders-db")],
+    "noisy_neighbour": [({"orders-db", "reports-batch", "storefront"}, "orders-db")],
     # Real-world service shapes: the same symptom on services of different kinds.
     "provider_degraded": [({"payments-provider", "storefront"}, "payments-provider")],
     "web_disk_full": [({"storefront"}, "storefront")],

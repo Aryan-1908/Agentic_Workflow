@@ -207,6 +207,98 @@ def _two_independent_faults(w: World):
     w.cpu_override["batch-01"] = 0.96
 
 
+def _black_friday_traffic(w: World):
+    """A real traffic peak, not a fault. Everything is working; there is simply more of it.
+
+    The classic 3am false positive: CPU and latency cross their thresholds because the business is
+    having a good day. Nothing is broken, every service is healthy, and the correct action is none.
+    Restarting anything here would take the shop down at its busiest moment.
+    """
+    for h in ("web-01", "orders-01"):
+        w.cpu_override[h] = 0.88
+    w.extra_errors += [
+        ("storefront", "web-01", "storefront.http",
+         "p99 latency 2140ms (baseline 180ms), 14200 req/min (baseline 900)"),
+    ]
+
+
+def _certificate_expired_at_midnight(w: World):
+    """A certificate that expired rather than one about to: every TLS handshake now fails.
+
+    Looks exactly like a total outage — uptime checks fail, checkout fails, errors everywhere — and
+    not one service is unhealthy. No registered action renews a certificate, so the only honest
+    answer is to escalate with the right cause. Reaching for a restart would waste the first ten
+    minutes of a customer-visible outage.
+    """
+    w.extra_errors += [
+        ("storefront", "web-01", "storefront.tls",
+         "tls: failed to verify certificate: x509: certificate has expired or is not yet valid"),
+        ("storefront", "web-01", "storefront.http",
+         "0 successful TLS handshakes in the last 60s (was 980/min)"),
+    ]
+
+
+def _dns_resolution_failure(w: World):
+    """orders-api cannot resolve the database's hostname. The database is perfectly healthy.
+
+    Connection errors point straight at db-01, and db-01 has nothing wrong with it: no CPU, no disk,
+    no process down, and it is serving other clients. The fault is in name resolution on orders-01.
+    Restarting the database — the obvious move — changes nothing and costs an outage.
+    """
+    w.extra_errors += [
+        ("orders-api", "orders-01", "orders.db",
+         "dial tcp: lookup orders-db.internal on 169.254.169.254:53: no such host"),
+        ("orders-api", "orders-01", "orders.http",
+         "POST /orders 503: database unreachable"),
+        ("storefront", "web-01", "storefront.checkout",
+         "checkout failed: orders-api 503: database unreachable"),
+    ]
+
+
+def _memory_leak_slow_burn(w: World):
+    """A leak that has been growing for hours and is now close to the limit.
+
+    Unlike a crash, nothing has failed yet: the service is up and answering. A restart genuinely
+    fixes it, buys hours, and fixes nothing permanently — which is why the incident should be
+    recorded and escalated even when the restart succeeds.
+    """
+    w.cpu_override["orders-01"] = 0.71
+    w.extra_errors += [
+        ("orders-api", "orders-01", "orders.jvm",
+         "heap 7.6GB/8GB after 14h uptime; GC 420ms every 3s, old gen not reclaiming"),
+    ]
+
+
+def _deploy_then_unrelated_failure(w: World):
+    """A deploy at 14:00 and an unrelated database stop at 14:02.
+
+    Everyone blames the deploy — it is the most recent change and the timing is perfect. The
+    rollback would be wasted work: db-01 was stopped by a person, and the deploy is fine. Tests that
+    recency is not treated as causation.
+    """
+    w.event("web-01", "storefront", "deploy.rollout",
+            "storefront 2026.10.2 rolled out to web-01", 9)
+    w.stop_vm("db-01", actor="maintenance@example.com")
+
+
+def _noisy_neighbour(w: World):
+    """batch-01 saturates the shared database; the customer-facing path degrades.
+
+    Two services, both doing their job: the batch service is heavy, the database is loaded, and the
+    storefront suffers for it. The fix is a scheduling or capacity decision, not a restart of
+    whichever service happened to alert first.
+    """
+    w.cpu_override["batch-01"] = 0.94
+    w.extra_errors += [
+        ("reports-batch", "batch-01", "reports.job",
+         "full table scan on orders started; 41M rows, no index on created_at"),
+        ("orders-db", "db-01", "postgres",
+         "LOG: duration: 31204.551 ms  statement: SELECT * FROM orders"),
+        ("storefront", "web-01", "storefront.checkout",
+         "checkout failed: orders-api timeout after 30s"),
+    ]
+
+
 SCENARIOS = {
     "healthy": ("nothing goes wrong", "-", []),
     "vm_stopped": ("a user stops web-01; the storefront goes down", "U1",
@@ -262,6 +354,18 @@ SCENARIOS = {
                       "nothing is broken", [(0, _batch_overruns_into_business_hours)]),
     "two_faults": ("web-01 is stopped and batch-01 is CPU-bound in the same minute, unrelated",
                    "two incidents", [(0, _two_independent_faults)]),
+    "traffic_peak": ("a genuine traffic peak: thresholds cross, nothing is broken",
+                     "false positive", [(0, _black_friday_traffic)]),
+    "cert_expired": ("the TLS certificate expired: total outage, no service unhealthy",
+                     "outage with no faulty service", [(0, _certificate_expired_at_midnight)]),
+    "dns_failure": ("orders-api cannot resolve the database hostname; the database is healthy",
+                    "blames the wrong service", [(0, _dns_resolution_failure)]),
+    "memory_leak": ("a slow heap leak after 14h uptime; a restart helps but does not fix it",
+                    "restart is a workaround", [(0, _memory_leak_slow_burn)]),
+    "deploy_coincidence": ("a deploy and an unrelated database stop two minutes apart",
+                           "recency is not causation", [(0, _deploy_then_unrelated_failure)]),
+    "noisy_neighbour": ("a batch job saturates the shared database and the storefront degrades",
+                        "two services, neither faulty", [(0, _noisy_neighbour)]),
     "novel": ("an unknown service, session-cache, starts failing: nothing in the knowledge base covers it", "U12",
               [(0, lambda w: w.extra_errors.append(("session-cache", "cache-01", "redis",
                                                     "redis: connection refused on cache-01:6379 (READONLY replica)")))]),

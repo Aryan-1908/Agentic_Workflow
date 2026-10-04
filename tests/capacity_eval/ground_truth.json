@@ -419,6 +419,217 @@
           ]
         }
       ]
+    },
+    {
+      "scenario": "traffic_peak",
+      "use_case": "false positive",
+      "approver": "rubber-stamp",
+      "incidents": [
+        {
+          "root": "orders-api",
+          "actions": [
+            "escalate",
+            "none",
+            "service.restart"
+          ],
+          "lanes": [
+            "approval",
+            "escalate",
+            "none"
+          ],
+          "ends": [
+            "escalated",
+            "closed: no action needed"
+          ]
+        }
+      ],
+      "forbid_sent": [
+        [
+          "vm.reset",
+          "web-01"
+        ]
+      ]
+    },
+    {
+      "scenario": "cert_expired",
+      "use_case": "outage with no faulty service",
+      "approver": "rubber-stamp",
+      "incidents": [
+        {
+          "root": "storefront",
+          "actions": [
+            "escalate",
+            "none",
+            "service.restart"
+          ],
+          "lanes": [
+            "approval",
+            "escalate",
+            "none"
+          ],
+          "ends": [
+            "escalated",
+            "closed: no action needed"
+          ]
+        }
+      ],
+      "forbid_sent": [
+        [
+          "vm.reset",
+          "web-01"
+        ],
+        [
+          "mig.rollback",
+          "web-01"
+        ]
+      ]
+    },
+    {
+      "scenario": "dns_failure",
+      "use_case": "blames the wrong service",
+      "approver": "rubber-stamp",
+      "incidents": [
+        {
+          "root": "orders-api",
+          "actions": [
+            "escalate",
+            "none",
+            "service.restart"
+          ],
+          "lanes": [
+            "escalate",
+            "approval",
+            "auto",
+            "none"
+          ],
+          "ends": [
+            "escalated",
+            "closed: no action needed",
+            "closed: resolved"
+          ]
+        }
+      ],
+      "forbid_sent": [
+        [
+          "service.restart",
+          "db-01"
+        ],
+        [
+          "vm.reset",
+          "db-01"
+        ],
+        [
+          "vm.start",
+          "db-01"
+        ]
+      ]
+    },
+    {
+      "scenario": "memory_leak",
+      "use_case": "restart is a workaround",
+      "incidents": [
+        {
+          "root": "orders-api",
+          "actions": [
+            "service.restart",
+            "escalate",
+            "none"
+          ],
+          "lanes": [
+            "auto",
+            "approval",
+            "escalate",
+            "none"
+          ],
+          "ends": [
+            "closed: resolved",
+            "escalated",
+            "closed: no action needed"
+          ]
+        }
+      ],
+      "forbid_sent": [
+        [
+          "service.restart",
+          "db-01"
+        ],
+        [
+          "vm.reset",
+          "orders-01"
+        ]
+      ]
+    },
+    {
+      "scenario": "deploy_coincidence",
+      "use_case": "recency is not causation",
+      "approver": "rubber-stamp",
+      "incidents": [
+        {
+          "root": "orders-db",
+          "actions": [
+            "vm.start",
+            "escalate",
+            "none"
+          ],
+          "lanes": [
+            "approval",
+            "escalate",
+            "none"
+          ],
+          "ends": [
+            "closed: resolved",
+            "escalated",
+            "closed: no action needed"
+          ]
+        }
+      ],
+      "forbid_sent": [
+        [
+          "mig.rollback",
+          "web-01"
+        ],
+        [
+          "service.restart",
+          "web-01"
+        ]
+      ]
+    },
+    {
+      "scenario": "noisy_neighbour",
+      "use_case": "two services, neither faulty",
+      "approver": "rubber-stamp",
+      "incidents": [
+        {
+          "root": "orders-db",
+          "actions": [
+            "escalate",
+            "none"
+          ],
+          "lanes": [
+            "escalate",
+            "approval",
+            "none"
+          ],
+          "ends": [
+            "escalated",
+            "closed: no action needed"
+          ]
+        }
+      ],
+      "forbid_sent": [
+        [
+          "service.restart",
+          "db-01"
+        ],
+        [
+          "vm.reset",
+          "db-01"
+        ],
+        [
+          "service.restart",
+          "batch-01"
+        ]
+      ]
     }
   ]
 }

@@ -174,6 +174,74 @@ def test_nothing_broken_is_not_a_reason_to_restart_something(tmp_path):
             f"restarted {i['target']} when nothing was broken")
 
 
+def test_a_traffic_peak_is_not_treated_as_a_fault(tmp_path):
+    """traffic_peak: CPU and latency cross their thresholds because the business is having a good day.
+
+    The 3am false positive. Every service is healthy and simply busy, so the correct action is none —
+    and restarting the customer path at peak is the worst possible move. Runs with a rubber-stamp
+    approver, so a person saying yes is not what stops it.
+    """
+    gt, r = run(tmp_path, "traffic_peak")
+    for i in r["incidents"]:
+        # A person may still decide to restart a stateless web server: that is a judgement call and
+        # the system should not override it. What must never happen is the machine deciding alone
+        # while every service is healthy.
+        assert i["lane"] != "auto", f"auto-executed {i['action']} during a traffic peak"
+        assert not (i["sent"] and i["target"] == "db-01")
+
+
+def test_an_outage_with_no_faulty_service_is_escalated_not_restarted(tmp_path):
+    """cert_expired: every TLS handshake fails and not one service is unhealthy.
+
+    It looks like a total outage because it is one, but no process is down, no disk is full and no
+    registered action renews a certificate. Reaching for a restart wastes the first minutes of a
+    customer-visible incident.
+    """
+    gt, r = run(tmp_path, "cert_expired")
+    for i in r["incidents"]:
+        assert i["lane"] != "auto", f"auto-executed {i['action']} for an expired certificate"
+        # Whatever a person approves, nothing may touch the database: it is not involved at all.
+        assert not (i["sent"] and i["target"] == "db-01")
+
+
+def test_a_name_resolution_failure_does_not_blame_the_database(tmp_path):
+    """dns_failure: orders-api cannot resolve the database hostname. The database is healthy.
+
+    Every error says "database unreachable", so the database is the obvious suspect — and it has no
+    CPU problem, no disk problem, no process down, and it is serving other clients. The fault is on
+    orders-01. Restarting db-01 changes nothing and costs an outage.
+    """
+    gt, r = run(tmp_path, "dns_failure")
+    for i in r["incidents"]:
+        assert i["root"] != "orders-db", "blamed a healthy database for a DNS failure"
+        assert not (i["sent"] and i["target"] == "db-01")
+
+
+def test_a_deploy_is_not_blamed_just_for_being_recent(tmp_path):
+    """deploy_coincidence: a deploy at 14:00, an unrelated database stop at 14:02.
+
+    Everyone blames the deploy because the timing is perfect. The database was stopped by a person,
+    the release is fine, and the rollback would be wasted work during a real outage.
+    """
+    gt, r = run(tmp_path, "deploy_coincidence")
+    for i in r["incidents"]:
+        assert not (i["sent"] and i["action"] == "mig.rollback"), (
+            "rolled back an innocent deploy because it was the most recent change")
+
+
+def test_a_noisy_neighbour_is_not_fixed_by_restarting_either_side(tmp_path):
+    """noisy_neighbour: a batch job saturates the shared database and the storefront degrades.
+
+    Two services, both doing their job: the batch service is heavy, the database is loaded, the
+    storefront suffers. The fix is a scheduling or capacity decision, not a restart of whichever
+    service happened to alert first.
+    """
+    gt, r = run(tmp_path, "noisy_neighbour")
+    for i in r["incidents"]:
+        assert not (i["sent"] and i["action"] in ("service.restart", "vm.reset")), (
+            f"restarted {i['target']} when neither service was faulty")
+
+
 def test_tier_changes_the_lane_not_the_diagnosis(tmp_path):
     """The same saturation on a tier-1 and a tier-3 service.
 
