@@ -174,3 +174,16 @@ scripted approver. These offline tests script the diagnoses, so they check the h
 | healthy shop | no incident, false-correlation rate 0 |
 | flapping | seen first by the anomaly detector, then by the alert: still recognised as the same fix not holding, so the retry goes to a person |
 | report | JSON and Markdown written with the spec's metrics |
+
+## After M8 · console and Ask (`test_console.py`)
+| test | proves |
+|---|---|
+| answer with valid citations | passed on, with its sources; the prompt marks the sources as data, not instructions |
+| made-up source / no source / model says it doesn't know | "I don't know", no citations |
+| question names an incident or a service | that incident is given as a source |
+| no model, empty question | no call made |
+| incidents and detail | the waiting card, diagnosis, timeline, signals and notifications are shown |
+| approve from the console | the same audit trail as `copilot approve`; no name → refused |
+| Ask sees live incidents | the recommendation of a waiting incident is in the sources |
+| page and API | served; no `innerHTML` in the page (data shown as text only) |
+| requests from elsewhere | another Host name, another Origin, a form post: all refused (403); the case is still waiting |

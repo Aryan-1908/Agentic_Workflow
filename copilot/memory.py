@@ -44,7 +44,7 @@ class Memory:
     def __init__(self, path: str | pathlib.Path = DEFAULT_PATH):
         self.path = pathlib.Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(self.path)
+        self.db = sqlite3.connect(self.path, check_same_thread=False)   # the console serves from its own thread in tests
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
 

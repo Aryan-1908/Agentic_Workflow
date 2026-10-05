@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copilot Console</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #6a7282; --line: #e3e6eb;
+  --accent: #2f5fd0; --ok: #1f8a4c; --warn: #b7791f; --bad: #c53030; --chip: #eef1f6;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14171c; --panel: #1c2027; --text: #e6e9ee; --muted: #9aa3b2; --line: #2c323c;
+          --accent: #7aa2ff; --ok: #4cc38a; --warn: #e0a84a; --bad: #f07171; --chip: #262b34; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+         padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 1; }
+h1 { font-size: 17px; margin: 0; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+main { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 16px; padding: 16px; max-width: 1500px; margin: 0 auto; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-width: 0; }
+.stack { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; white-space: nowrap; }
+.muted { color: var(--muted); }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+button { font: inherit; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--chip); color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--bad); }
+button:disabled { opacity: .5; cursor: wait; }
+input, textarea { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); width: 100%; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row > input { flex: 1; min-width: 140px; }
+ul.list { list-style: none; margin: 0; padding: 0; }
+ul.list li { padding: 8px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+ul.list li:hover { background: var(--chip); }
+ul.list li.sel { border-color: var(--accent); }
+.card { border: 1px solid var(--warn); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; overflow-wrap: anywhere; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+th { color: var(--muted); font-weight: 500; }
+.scroll { max-height: 340px; overflow: auto; }
+.answer { white-space: pre-wrap; margin-top: 8px; }
+.sev-critical, .sev-error { color: var(--bad); } .sev-warning { color: var(--warn); } .sev-info { color: var(--muted); }
+code { font-size: 12px; background: var(--chip); padding: 0 4px; border-radius: 4px; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Remediation Copilot</h1>
+  <div class="row"><span id="usage" class="chip">Gemini …</span><span id="refreshed" class="muted"></span></div>
+</header>
+<main>
+  <div class="stack">
+    <section>
+      <h2>Ask the copilot</h2>
+      <form id="ask" class="row">
+        <input id="question" maxlength="500" placeholder="e.g. what happened to orders-db today? how do we fix a full disk?">
+        <button class="primary" type="submit">Ask</button>
+      </form>
+      <div id="answer" class="answer muted">Answers come only from the runbooks, past incidents and live incidents, with sources; otherwise "I don't know". One Gemini call per question.</div>
+    </section>
+    <section>
+      <h2>Waiting for approval</h2>
+      <div class="row" style="margin-bottom:8px"><span class="muted">Your name</span><input id="who" placeholder="needed for the audit trail"></div>
+      <div id="cards" class="muted">none</div>
+    </section>
+    <section>
+      <h2>Incidents</h2>
+      <ul id="incidents" class="list"></ul>
+    </section>
+  </div>
+  <div class="stack">
+    <section id="detail"><h2>Incident</h2><p class="muted">Pick an incident.</p></section>
+    <section>
+      <h2>Latest signals (from OpenTelemetry, via watch)</h2>
+      <div class="scroll"><table id="signals"><thead><tr><th>time</th><th>severity</th><th>type</th><th>service</th><th>state</th><th>title</th></tr></thead><tbody></tbody></table></div>
+    </section>
+    <section>
+      <h2>Notifications</h2>
+      <div class="scroll"><table id="notes"><tbody></tbody></table></div>
+    </section>
+  </div>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let selected = null;
+
+function el(tag, attrs = {}, ...kids) {           // builds DOM with textContent only: data is never parsed as HTML
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k === "on") for (const [ev, f] of Object.entries(v)) e.addEventListener(ev, f);
+    else e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k !== null && k !== undefined) e.append(k instanceof Node ? k : document.createTextNode(String(k)));
+  return e;
+}
+const time = (iso) => iso ? new Date(iso).toLocaleTimeString() : "";
+const day = (iso) => iso ? new Date(iso).toLocaleString() : "";
+
+async function api(path, body) {
+  const r = await fetch(path, body ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)} : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+function statusClass(s) {
+  if (!s) return "muted";
+  if (s.startsWith("closed: resolved") || s.startsWith("closed: no action") || s.startsWith("closed: recovered")) return "ok";
+  if (s.startsWith("escalated") || s.includes("rejected")) return "bad";
+  if (s.startsWith("awaiting")) return "warn";
+  return "muted";
+}
+
+try { $("who").value = localStorage.getItem("copilot-approver") || ""; } catch (e) {}
+$("who").addEventListener("change", () => { try { localStorage.setItem("copilot-approver", $("who").value); } catch (e) {} });
+
+function renderCards(waiting) {
+  const box = $("cards");
+  box.replaceChildren();
+  if (!waiting.length) { box.append("none"); box.className = "muted"; return; }
+  box.className = "";
+  for (const w of waiting) {
+    const reason = el("input", {placeholder: "reason (needed to reject)"});
+    const msg = el("div", {class: "muted"});
+    const decide = async (decision, btns) => {
+      btns.forEach(b => b.disabled = true);
+      msg.textContent = decision === "approve" ? "approved: the remediation agent is running and verifying the action…" : "rejecting…";
+      try {
+        const r = await api("/api/decide", {case_id: w.case_id, decision, by: $("who").value, reason: reason.value});
+        msg.textContent = r.status; msg.className = statusClass(r.status);
+        refresh();
+      } catch (e) { msg.textContent = e.message; msg.className = "bad"; btns.forEach(b => b.disabled = false); }
+    };
+    const ok = el("button", {class: "primary"}, "Approve"), no = el("button", {class: "danger"}, "Reject");
+    ok.addEventListener("click", () => decide("approve", [ok, no]));
+    no.addEventListener("click", () => decide("reject", [ok, no]));
+    box.append(el("div", {class: "card"},
+      el("div", {class: "row"}, el("strong", {}, `${w.action} on ${w.target || "-"}`), el("span", {class: "chip"}, `confidence ${w.confidence}`)),
+      el("div", {class: "muted"}, `${w.case_id} · ${w.services.join(", ")}`),
+      el("a", {href: "#", on: {click: (e) => { e.preventDefault(); select(w.case_id); }}}, "see the diagnosis and evidence"),
+      el("div", {class: "row", style: "margin-top:6px"}, reason, ok, no), msg));
+  }
+}
+
+function renderIncidents(list) {
+  const ul = $("incidents");
+  ul.replaceChildren();
+  if (!list.length) ul.append(el("li", {class: "muted"}, "no incidents yet: run the simulator and `python -m copilot watch`"));
+  for (const i of list) {
+    const li = el("li", {class: i.case_id === selected ? "sel" : ""},
+      el("div", {class: "row"}, el("strong", {}, i.services.join(", ")), i.lane ? el("span", {class: "chip"}, i.lane) : null),
+      el("div", {class: statusClass(i.status)}, i.status),
+      el("div", {class: "muted"}, `${i.case_id} · ${day(i.first_seen)}` + (i.action ? ` · ${i.action} ${i.target || ""}` : "")));
+    li.addEventListener("click", () => select(i.case_id));
+    ul.append(li);
+  }
+}
+
+function kv(pairs) {
+  return el("dl", {class: "kv"}, pairs.filter(p => p[1] !== null && p[1] !== undefined && p[1] !== "").flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]));
+}
+
+async function select(id) {
+  selected = id;
+  let d;
+  try { d = await api(`/api/incident/${encodeURIComponent(id)}`); } catch (e) { return; }
+  const box = $("detail");
+  const parts = [el("h2", {}, `Incident ${d.case_id}`),
+    kv([["status", el("span", {class: statusClass(d.status)}, d.status)], ["services", d.services.join(", ")],
+        ["likely origin", d.root || "unknown"], ["first / last signal", `${day(d.first_seen)} / ${time(d.last_seen)}`],
+        ["traces", el("span", {}, Object.entries(d.jaeger).map(([s, u]) => el("a", {href: u, target: "_blank", rel: "noopener"}, s + " ")))]])];
+  if (d.diagnosis) {
+    const g = d.diagnosis;
+    parts.push(el("h2", {style: "margin-top:14px"}, "Diagnosis"),
+      el("p", {}, el("span", {class: g.status === "grounded" ? "ok" : "warn"}, g.status), d.reused_from ? ` (reused from ${d.reused_from}, no Gemini call)` : "", " · ", g.summary),
+      g.root_cause ? kv([["cause", g.root_cause.text], ["from", g.root_cause.citations.join(", ")]]) : el("p", {class: "muted"}, "no grounded root cause"),
+      el("ul", {}, (g.steps || []).map(s => el("li", {}, el("code", {}, s.action), " ", s.text, el("span", {class: "muted"}, ` [${s.citations.join(", ")}]`)))),
+      (g.removed || []).length ? el("details", {}, el("summary", {}, `${g.removed.length} unsupported claim(s) removed`),
+        el("ul", {}, g.removed.map(r => el("li", {}, `${r.where}: ${r.claim} (${r.problem})`)))) : null);
+  }
+  if (d.recommendation) {
+    const r = d.recommendation;
+    parts.push(el("h2", {style: "margin-top:14px"}, "Recommendation and route"),
+      kv([["action", `${r.action} on ${r.target || "-"}`], ["blast radius", `${r.blast_radius} (${r.blast_reason})`],
+          ["confidence", r.confidence], ["rollback", r.rollback], ["lane", d.route ? `${d.route.lane}: ${d.route.reason}` : ""],
+          ["decision", d.decision ? `${d.decision.decision} by ${d.decision.by}${d.decision.reason ? ": " + d.decision.reason : ""}` : ""],
+          ["execution", d.execution ? `${d.execution.result}${d.execution.detail ? ": " + d.execution.detail : ""}` : ""]]));
+  }
+  parts.push(el("h2", {style: "margin-top:14px"}, `Signals (${d.signals.length})`),
+    el("div", {class: "scroll"}, el("table", {}, el("tbody", {}, d.signals.map(s =>
+      el("tr", {}, el("td", {}, time(s.at)), el("td", {class: "sev-" + s.severity}, s.severity), el("td", {}, s.type), el("td", {}, s.service), el("td", {}, s.state), el("td", {}, s.title)))))));
+  const steps = d.trace.length ? d.trace : d.timeline.map(t => ({at: t.at, step: t.step, status: "", detail: t.detail}));
+  parts.push(el("h2", {style: "margin-top:14px"}, "Timeline (trace)"),
+    el("div", {class: "scroll"}, el("table", {}, el("tbody", {}, steps.map(t =>
+      el("tr", {}, el("td", {}, time(t.at)), el("td", {}, t.step), el("td", {class: t.status === "failed" || t.status === "error" ? "bad" : t.status === "escalated" ? "warn" : "muted"}, t.status || ""),
+         el("td", {}, t.detail, t.ms ? el("span", {class: "muted"}, ` (${t.ms} ms)`) : null)))))));
+  box.replaceChildren(...parts.filter(Boolean));
+  document.querySelectorAll("#incidents li").forEach(li => li.classList.toggle("sel", li.textContent.includes(id)));
+}
+
+async function refresh() {
+  try {
+    const o = await api("/api/overview");
+    const u = o.usage;
+    $("usage").textContent = `Gemini today ${u.spent}/${u.budget} calls`;
+    $("usage").className = "chip " + (u.spent > u.budget * 0.8 ? "warn" : "");
+    $("refreshed").textContent = "updated " + time(o.now);
+    renderCards(o.waiting.map(w => ({...w})));
+    renderIncidents(o.incidents);
+    $("notes").querySelector("tbody").replaceChildren(...o.notifications.map(n =>
+      el("tr", {}, el("td", {}, time(n.at)), el("td", {}, n.to), el("td", {}, n.case_id), el("td", {}, n.message))));
+    const sig = await api("/api/signals");
+    $("signals").querySelector("tbody").replaceChildren(...sig.map(s =>
+      el("tr", {}, el("td", {}, time(s.at)), el("td", {class: "sev-" + s.severity}, s.kind === "rejected" ? "rejected" : s.severity),
+         el("td", {}, s.type || ""), el("td", {}, s.service || ""), el("td", {}, s.state || ""), el("td", {}, s.title || ""))));
+  } catch (e) { $("refreshed").textContent = "console server not reachable"; }
+}
+
+$("ask").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const q = $("question").value.trim();
+  if (!q) return;
+  const box = $("answer"), btn = e.target.querySelector("button");
+  btn.disabled = true; box.className = "answer muted"; box.textContent = "thinking…";
+  try {
+    const a = await api("/api/ask", {question: q});
+    box.className = "answer" + (a.known ? "" : " muted");
+    box.replaceChildren(el("div", {}, a.answer),
+      a.citations.length ? el("div", {class: "muted", style: "margin-top:6px"}, "sources: ",
+        a.citations.map(c => c.startsWith("incident:")
+          ? el("a", {href: "#", on: {click: (ev) => { ev.preventDefault(); select(c.slice(9)); }}}, c + " ")
+          : el("code", {}, c), " ")) : null);
+  } catch (err) { box.className = "answer bad"; box.textContent = err.message; }
+  btn.disabled = false;
+  refresh();
+});
+
+refresh();
+setInterval(() => { refresh(); if (selected) select(selected); }, 5000);
+</script>
+</body>
+</html>

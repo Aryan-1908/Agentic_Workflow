@@ -109,6 +109,23 @@ simulator applies it, and the copilot closes the case only after the alerts clos
 goes the auto lane: the Service agent restarts batch-01 with no human. The Safety Reviewer (code) blocks anything
 outside the allowlist, without approval, above the blast limit, or on a data service.
 
+## 7. The M8 evaluation (all scenarios, scored)
+No Collector or simulator needed: the harness runs its own simulated shop per scenario, with a scripted approver.
+```bash
+.venv/bin/python -m copilot eval                          # all 15 scenarios, about 50 Gemini calls, ~6 min
+.venv/bin/python -m copilot eval --only blip,db_down      # just some
+```
+The report is `runs/eval/m8-<time>.md`; each scenario's engine log, tickets and trace are in `runs/eval/m8-<time>/`.
+
+## 8. The console (web page)
+```bash
+.venv/bin/python -m copilot console          # then open http://127.0.0.1:8765
+```
+Run it next to `watch` (section 3 or 6). It shows the incidents, approval cards (type your name, then Approve, or a
+reason and Reject: the same as `copilot approve` / `reject`), each incident's diagnosis, evidence and step-by-step
+trace, the latest signals, notifications and today's Gemini usage. "Ask the copilot" answers from the runbooks and
+incidents with sources, or says "I don't know" (one Gemini call per question). Local only (127.0.0.1).
+
 ## Without the Collector
 `python -m sim run db_down --file runs/otel/telemetry.jsonl` writes the same OTLP JSON directly. Handy for quick runs;
 the Collector path is the real one.
