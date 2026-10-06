@@ -11,6 +11,7 @@
     python -m copilot cases [--waiting]                    # incident workflows; --waiting shows approval cards
     python -m copilot approve <case> --by <name> [--reason …] | reject <case> --by <name> --reason …
     python -m copilot eval [--only cpu_runaway,db_down]    # M8: all scenarios, scored against the ground truth
+    python -m copilot console                              # web console on http://127.0.0.1:8765
 """
 import argparse, json, pathlib, sys, time
 from datetime import datetime, timezone
@@ -306,6 +307,21 @@ def cmd_eval(args):
     print(f"report: {rep['saved']}")
 
 
+def cmd_console(args):
+    """The local web console: incidents, approvals, signals, usage, and Ask the copilot."""
+    from .console import ConsoleData, serve
+    from .kb.index import KnowledgeIndex
+    client = load_client(args.client)
+    memory = Memory()
+    try:
+        index = KnowledgeIndex(memory.db) if memory.db.execute("SELECT count(*) FROM kb_chunks").fetchone()[0] else None
+    except Exception:            # a fresh memory without the knowledge-base table
+        index = None
+    if index is None:
+        print("knowledge base not indexed: Ask only sees incidents (run: python -m copilot kb index)")
+    serve(ConsoleData(memory, make_workflow(memory, client), index=index, llm_factory=lambda: get_llm("ask")), args.port)
+
+
 def cmd_watch(args):
     from .engine import Engine
     client = load_client(args.client)
@@ -384,13 +400,16 @@ def main():
     ev.add_argument("--only", help="comma-separated scenario names")
     ev.add_argument("--client", default="poc-test")
     ev.add_argument("--rules-only", action="store_true", help="correlation without the LLM agent")
+    co = sub.add_parser("console", help="local web console (incidents, approvals, signals, Ask the copilot)")
+    co.add_argument("--port", type=int, default=8765)
+    co.add_argument("--client", default="poc-test")
     rs = sub.add_parser("reset", help="start a clean demo (keeps the knowledge-base index)")
     rs.add_argument("--yes", action="store_true")
     rs.add_argument("--keep-memory", action="store_true", help="keep past cases (for 'seen before' across runs)")
     args = ap.parse_args()
     {"parse": cmd_parse, "watch": cmd_watch, "replay": cmd_replay, "memory": cmd_memory, "kb": cmd_kb,
      "diagnose": cmd_diagnose, "cases": cmd_cases, "approve": cmd_decide, "reject": cmd_decide,
-     "reset": cmd_reset, "eval": cmd_eval}[args.cmd](args)
+     "reset": cmd_reset, "eval": cmd_eval, "console": cmd_console}[args.cmd](args)
 
 
 if __name__ == "__main__":

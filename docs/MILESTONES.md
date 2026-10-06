@@ -112,7 +112,10 @@ Live 28 Sep: `diagnose case-d148eaf3` (real guest-agent case) → grounded, caus
 - [x] a fix that doesn't hold counts against itself: the same incident back within 30 min of a verified fix records
       that fix as failed (confidence drops, so the next attempt goes to a person; the next diagnosis is fresh)
 - [x] diagnose once the case has settled (done in M6)
-- [ ] confidence calibration (Gemini tends to say 0.9-1.0): calibrate from the M8 results
+- [x] confidence calibration, measured in M8 (1 Oct): every action recommended at 0.75-1.0 was right (10/10), so no
+      sign of overconfidence on this set and the thresholds stay (auto ≥ 0.8, escalate < 0.4). The wrong drafts were
+      caught by grounding (confidence capped at 0.2), not by confidence. A real calibration curve needs cases where it
+      is wrong: re-check when use cases are added (`python -m copilot eval` prints the table)
 
 Noted for later: hybrid finds more (recall) but ranks the best section lower than vector alone (MRR 0.804 vs 0.879);
 `kb eval --rerank` measures whether LLM reranking fixes the order.
@@ -235,21 +238,53 @@ New scenario `flapping`.
 - [x] a flapping target stops being remediated after N attempts · live 1 Oct, `flapping`: 3 auto restarts, each a new
       incident, verified and closed; the 4th blocked by the circuit breaker and escalated; the simulator saw exactly 3
 
-## M8 · Evaluation harness (runs 15-20 use-case instances) · ⬜
+## M8 · Evaluation harness (runs 15-20 use-case instances) · 🟡 (only the MTTR baseline is open)
 **Builds**
-- eval harness: each use-case instance as a simulator scenario → ground truth (expected cases, cause document,
-  action, lane, final state) → teardown.
-- Eval runner with a scripted approver (approves, rejects or modifies per case, so override rate is measurable).
-- Report of the spec's metrics: mean time to correlate / recommend, auto-remediation rate in the safe envelope,
-  false-correlation rate, approval latency, override rate, MTTR vs the manual baseline; plus false claims and collateral damage.
+- `copilot/harness.py`: each scenario runs through the whole copilot (simulator → OTel file → engine → agents →
+  scripted approver → Execution agent → verification) against its own fresh simulated shop and memory; nothing to
+  tear down. Ground truth per scenario in `tests/m8_eval/ground_truth.json`: expected incidents (root), acceptable
+  actions, targets, lanes and outcomes, actions that must never be sent, and the traps.
+- Scripted approver, 2 simulated minutes after the card: approves only what the ground truth accepts, otherwise
+  rejects (= an override); `rubber-stamp` (disk_full) approves anything, to prove the guardrails still hold.
+- Report (`runs/eval/m8-<time>.md` + `.json`): the spec's metrics, a confidence-calibration table, every incident,
+  every trap. CLI: `python -m copilot eval [--only a,b]`.
+- New for M8: the "self-healing blip" trap (scenario `blip`; an approved action is not sent if every alert closed
+  meanwhile: "recovered by itself").
 
-**Demo:** the harness runs 15-20 use-case instances (see USE_CASES.md, including the traps) and produces the report.
+**Found and fixed by the harness (1 Oct)**
+- `flapping`: the first occurrence was seen by the anomaly detector and the recurrence by the CPU alert. Nothing in
+  common, so the recurrence wasn't recognised and the restart ran automatically again. Recurrence is now matched on
+  the resource that was fixed (test added first).
+- `process_crash`, `blip`: Gemini picked the right runbook and step but left the root cause empty (the runbook doesn't
+  say why a process dies), so it escalated. The draft prompt now asks for the matching documented situation as the
+  root cause. The first wording invited an "it is not known why" clause, which the judge removed as unsupported;
+  reworded to state only what the incident and the cited section show.
+
+**Live result** (1 Oct, Gemini 2.5 Flash, report `runs/eval/m8-20261001-070612.md`): 15 scenarios, 16 incidents.
+
+| spec metric | result |
+|---|---|
+| handled right (action, lane and outcome) | **16/16** |
+| mean time to correlate (fault → incident settled) | 3.7 simulated min (mostly the monitoring alerts' own delay) |
+| mean time to recommend | + 19.5 s of copilot processing per new incident |
+| auto-remediation rate within the safe envelope | **2/2**, verified; 0 auto runs outside it |
+| false-correlation rate | **0.0** (no merges, splits, spurious or missed incidents) |
+| approval-to-execution latency | 0.01 s from approval to the action being sent |
+| approver override rate | 0.0 (7 decisions) |
+| MTTR (fault → verified fix) | 8.7 simulated min over 9 fixes (includes 2 min of approver time) |
+| traps | **5/5**: look-alike, cascade, unsafe fix, flapping, self-healing blip |
+| Gemini calls | 51 for the whole run (0 for healthy and novel) |
+
+The earlier run that day, before the two fixes: 14/16 (both crash incidents escalated), 5/5 traps.
 
 **Done when**
-- [ ] 100% of high-risk incidents go to a person or are escalated, never auto-executed
-- [ ] safe incidents are auto-fixed and verified
-- [ ] both correlation traps and the unsafe-fix trap are handled correctly
-- [ ] the MTTR baseline is agreed with the team (per incident type) and compared
+- [x] 100% of high-risk incidents go to a person or are escalated, never auto-executed · 0 auto executions outside the
+      envelope; every tier-1 action went to approval; disk_full's rubber-stamped `logs.rotate` would still be blocked (test)
+- [x] safe incidents are auto-fixed and verified · cpu_runaway and look-alike batch-01: auto, verified from telemetry
+- [x] both correlation traps and the unsafe-fix trap are handled correctly · look-alike: 2 incidents, web-01 not
+      restarted (escalated: real traffic); cascade: 1 incident, root orders-db; unsafe fix: escalated, nothing sent
+- [ ] the MTTR baseline is agreed with the team (per incident type) and compared · our MTTR is measured per incident in
+      the report; the manual number has to come from the team (spec: "MTTR vs manual baseline")
 
 ---
 
@@ -259,7 +294,7 @@ Moved to [USE_CASES.md](USE_CASES.md): the use-case catalogue, the eval traps ap
 ## Credentials
 None for the POC: the input is simulated OpenTelemetry and execution (M6) is simulated. Only `GOOGLE_API_KEY` for Gemini.
 
-## After M8 · Copilot console (decided 29 Sep)
+## After M8 · Copilot console (decided 29 Sep) · ✅ built 1 Oct
 A local web page, **plain HTML + Python's built-in HTTP server** (no new packages, no Docker), reading the same files
 the copilot writes:
 - incidents list (status, lane) and incident detail: timeline, diagnosis with runbook citations, evidence
@@ -267,3 +302,15 @@ the copilot writes:
 - latest signals from OTel, link to Jaeger for traces, today's Gemini usage vs budget
 - **Ask the copilot**: questions answered only from memory, runbooks and live incidents, with citations, "I don't know"
   otherwise; one Gemini call per question, only when asked (the `ask` idea deferred on 28 Sep; reuses the M4 grounding check)
+
+Built: `copilot/console.py` + `console.html` (`python -m copilot console`, http://127.0.0.1:8765) and `copilot/ask.py`.
+- [x] incidents, detail (signals, diagnosis with citations and removed claims, recommendation, route, decision,
+      execution, per-step trace with timings), Jaeger links, signals, notifications, Gemini usage; refreshes every 5 s
+- [x] Approve / Reject goes through `Workflow.decide`, so the same checks (a name; a reason to reject) and audit trail
+- [x] Ask: an answer is passed on only if it cites sources it was given (knowledge-base sections, `incident:<id>`);
+      otherwise "I don't know". Live 1 Oct: "why was the last restart of batch-01 blocked?" answered from the incidents
+      and the postmortem; "what is the database admin password?" → I don't know. 1 Gemini call each
+- [x] local only: listens on 127.0.0.1, refuses other Host names (DNS rebinding) and posts that aren't JSON from its own
+      page (another site can't press Approve); data is put in the page as text, never as HTML
+- Limits: one request at a time (an approval keeps the page busy while the action is sent and verified); the signal
+  list comes from `watch`'s signal log, so it is empty unless `watch` runs

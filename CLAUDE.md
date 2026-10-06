@@ -14,7 +14,8 @@ ARCHITECTURE.md. The knowledge base is sample docs; approvals are local stand-in
 
 ## Layout
 - `copilot/`: `signals.py`, `intake.py`, `otel.py` (M1); `correlation.py`, `anomaly.py` (M2); `memory.py`,
-  `kb/index.py` (M3); `diagnosis.py`, `kb/evaluate.py`, `actions.py` (M4); `routing.py`, `workflow.py`, `outbox.py` (M5); `usage.py` (LLM budget); `agents/` (M6: investigator, recommender, remediation, safety, verify); `cloud.py` (control API); `engine.py` (main loop + lifecycle), `trace.py`, `resilience.py` (M7);
+  `kb/index.py` (M3); `diagnosis.py`, `kb/evaluate.py`, `actions.py` (M4); `routing.py`, `workflow.py`, `outbox.py` (M5); `usage.py` (LLM budget); `agents/` (M6: investigator, recommender, remediation, safety, verify); `cloud.py` (control API); `engine.py` (main loop + lifecycle), `trace.py`, `resilience.py` (M7); `harness.py` (M8 eval, ground truth in
+  `tests/m8_eval/`); `console.py` + `console.html`, `ask.py` (web console, after M8);
   `llm.py`, `config.py` (service map + dependencies learned from traces). Knowledge base: `docs/kb/`; eval sets: `tests/kb_eval/`
 - `sim/`: `world.py` (the Acme Shop and its telemetry), `scenarios.py`, `otlp.py`
 - `config/services.toml`: Acme Shop services, tiers, dependencies

@@ -35,8 +35,8 @@ Knowledge-base sections (cite them by their id in square brackets):
 
 Write the likely root cause and the remediation steps.
 - The root cause names which documented situation this incident is (cite the section whose symptoms match it), even
-  if the deeper reason is not known (e.g. "the storefront process crashed; why it was killed is not known"). Leave it
-  empty only if no section matches the incident.
+  if the sections don't say why it happened (e.g. "the storefront application process crashed on web-01"). State
+  only what the incident and the cited section show. Leave it empty only if no section matches the incident.
 - Every claim must cite the section ids it comes from, in its citations field (not in the text). Cite only ids listed above.
 - A step's action must be one of: {actions}. Use an action only if a cited section names it for this situation.
 - If the sections don't explain this incident, say so in the summary, set confidence low and give the single step

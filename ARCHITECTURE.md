@@ -35,6 +35,9 @@ Spec: [docs/SPEC.md](docs/SPEC.md). Alignment review: https://claude.ai/artifact
 | `copilot/otel.py` | reads the Collector's output: logs, traces (failed calls, dependency edges), metrics (anomalies) |
 | `copilot/agents/` | M6 agents: `investigator.py`, `recommender.py`, `remediation.py` (execution + per-family agents), `safety.py`, `verify.py` |
 | `copilot/engine.py` | the main loop (watch, tests, M8): correlate → workflow → close / reopen |
+| `copilot/harness.py` | M8 evaluation: every scenario through the copilot, scored against `tests/m8_eval/ground_truth.json` |
+| `copilot/console.py`, `console.html` | local web console: incidents, approvals, signals, usage, Ask (after M8) |
+| `copilot/ask.py` | Ask the copilot: answers only from cited runbooks / incidents, else "I don't know" |
 | `copilot/trace.py`, `copilot/resilience.py` | per-case trace (runs/trace/), retries with backoff + fault injection |
 | `copilot/cloud.py` | the environment's control API (the simulator's action inbox) |
 | `copilot/` | `intake.py`, `signals.py`, `anomaly.py`, `correlation.py`, `memory.py`, `kb/index.py`, `kb/evaluate.py`, `diagnosis.py`, `actions.py`, `routing.py`, `workflow.py`, `outbox.py`, `llm.py`, `config.py`, CLI |
@@ -56,4 +59,4 @@ Use cases (the problems it handles, added any time): [docs/USE_CASES.md](docs/US
 | M5 | ordered workflow with durable approval checkpoint | ✅ all four lanes live on simulated incidents with Gemini |
 | M6 | investigator + recommender, then the six-agent team; action allowlist | ✅ remediation agents execute against the simulator and verify from telemetry |
 | M7 | per-step trace, retries, circuit breaker | ✅ trace per case, retries + clean escalation, incident lifecycle, breaker live |
-| M8 | 15-20 incident evals + metrics report | ⬜ (simulator scenarios) |
+| M8 | 15-20 incident evals + metrics report | 🟡 16/16 incidents right, 5/5 traps live; MTTR baseline needs the team's number |
