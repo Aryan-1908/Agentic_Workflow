@@ -100,7 +100,7 @@ Actions are applied to the simulated shop only while the simulator runs **live**
 every simulated minute, like a cloud API, and confirms each action through telemetry). Three terminals:
 ```bash
 tools/otelcol-contrib --config otel/collector.yaml
-.venv/bin/python -m sim run db_down --live --tick 3 --minutes 40
+.venv/bin/python -m sim run db_down --live --tick 3 --minutes 400   # simulated minutes: 400 x 3 s = 20 real minutes to approve; Ctrl+C once resolved
 .venv/bin/python -m copilot watch
 ```
 `watch` waits for the incident to settle (20 s without new signals), diagnoses, recommends and routes. For `db_down`
